@@ -155,46 +155,76 @@ func Analyze(ctx context.Context, root string, cfg Config) (Result, error) {
 	since := time.Now().AddDate(0, 0, -cfg.WindowDays)
 	sinceArg := "--since=" + since.Format(time.RFC3339)
 
+	// These four reads are skipped entirely on a cache hit. The key carries the
+	// window day as well as the commit because the window slides with the clock,
+	// so the same commit yields different churn tomorrow.
+	cacheKey, cacheable := newHistoryKey(root, headOut, cfg.WindowDays, since)
+	var hist historyOutputs
+	if cacheable {
+		hist, _ = cacheKey.lookup()
+	}
+	hit := cacheable && hist.windowCount != ""
+
 	var (
 		histNumstat, histWindow, histAuthors, histLast string
 		histNumstatErr, histWindowErr                  error
 		histAuthorsErr, histLastErr                    error
 	)
 
-	wg = newGroup()
-	wg.run(func() error {
-		// `git log --numstat` gives add/delete counts per file in one pass; no
-		// per-commit subprocesses.
-		histNumstat, histNumstatErr = run(ctx, root, cfg.Timeout, "log",
-			sinceArg,
-			"--no-merges",
-			"--pretty=format:"+commitSeparator,
-			"--numstat",
-			"HEAD")
-		return histNumstatErr
-	})
-	wg.run(func() error {
-		histWindow, histWindowErr = run(ctx, root, cfg.Timeout, "rev-list",
-			"--count", sinceArg, "HEAD")
-		return histWindowErr
-	})
-	wg.run(func() error {
-		histAuthors, histAuthorsErr = run(ctx, root, cfg.Timeout, "log",
-			sinceArg, "--no-merges", "--format=%aN", "HEAD")
-		return histAuthorsErr
-	})
-	wg.run(func() error {
-		histLast, histLastErr = run(ctx, root, 10*time.Second, "log", "-1", "--format=%aI", "HEAD")
-		return histLastErr
-	})
-	// A failure in any of these leaves that field at its zero value rather than
-	// aborting, which is the tolerance the parallel metadata pass above already
-	// applies: a partial history still yields a usable snapshot.
-	_ = wg.wait()
+	if !hit {
+		wg = newGroup()
+		wg.run(func() error {
+			// `git log --numstat` gives add/delete counts per file in one pass; no
+			// per-commit subprocesses.
+			histNumstat, histNumstatErr = run(ctx, root, cfg.Timeout, "log",
+				sinceArg,
+				"--no-merges",
+				"--pretty=format:"+commitSeparator,
+				"--numstat",
+				"HEAD")
+			return histNumstatErr
+		})
+		wg.run(func() error {
+			histWindow, histWindowErr = run(ctx, root, cfg.Timeout, "rev-list",
+				"--count", sinceArg, "HEAD")
+			return histWindowErr
+		})
+		wg.run(func() error {
+			histAuthors, histAuthorsErr = run(ctx, root, cfg.Timeout, "log",
+				sinceArg, "--no-merges", "--format=%aN", "HEAD")
+			return histAuthorsErr
+		})
+		wg.run(func() error {
+			histLast, histLastErr = run(ctx, root, 10*time.Second, "log", "-1", "--format=%aI", "HEAD")
+			return histLastErr
+		})
+		// A failure in any of these leaves that field at its zero value rather than
+		// aborting, which is the tolerance the parallel metadata pass above already
+		// applies: a partial history still yields a usable snapshot.
+		_ = wg.wait()
 
-	if histNumstatErr != nil && strings.TrimSpace(histNumstat) == "" && stats.Note == "" {
+		hist = historyOutputs{
+			numstat:     histNumstat,
+			windowCount: histWindow,
+			windowNames: histAuthors,
+			lastCommit:  histLast,
+		}
+		// Only a complete read is cached. Keeping a partial one would turn a
+		// single transient git failure into a wrong answer for the rest of the
+		// day, which is worse than being slow.
+		if histNumstatErr == nil && histWindowErr == nil &&
+			histAuthorsErr == nil && histLastErr == nil {
+			cacheKey.store(hist)
+		}
+	}
+
+	if !hit && histNumstatErr != nil && strings.TrimSpace(histNumstat) == "" && stats.Note == "" {
 		stats.Note = "git history unavailable"
 	}
+	histNumstat = hist.numstat
+	histWindow = hist.windowCount
+	histAuthors = hist.windowNames
+	histLast = hist.lastCommit
 
 	entries, added, deleted := parseNumstat(histNumstat, commitSeparator)
 	stats.LinesAdded = added
