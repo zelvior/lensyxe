@@ -187,7 +187,19 @@ runs:
     # is exported and analyzed, which keeps the action self-contained.
     - name: Resolve baseline snapshot
       id: baseline
-      if: ${{ inputs.pr-comment == 'true' && inputs.baseline == '' }}
+      # `comment-on-pr`, not `pr-comment`.
+      #
+      # There is no `pr-comment` input; `pr-comment` is the CLI *flag* the
+      # Action passes to the binary. Referencing an undeclared input is not an
+      # error in GitHub Actions — it evaluates to the empty string — so
+      # `'' == 'true'` was permanently false and this step had never once run.
+      # The symptom was invisible: the step only exports a base ref, so skipping
+      # it meant the PR comment silently lost its baseline without anything
+      # failing.
+      #
+      # scripts/check-repo-yaml.go asserts that every inputs.* reference is
+      # declared, which is what turned this up.
+      if: ${{ inputs.comment-on-pr == 'true' && inputs.baseline == '' }}
       shell: bash
       env:
         TOKEN: ${{ inputs.token != '' && inputs.token || github.token }}
