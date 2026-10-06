@@ -43,6 +43,14 @@ date.
 
 ### Fixed
 
+- **The Action's baseline resolution step had never run.** Its condition read
+  `inputs.pr-comment`, which is not a declared input; it is the CLI *flag* the
+  Action passes to the binary. GitHub evaluates an undeclared input to the empty
+  string rather than erroring, so `'' == 'true'` was permanently false. The
+  symptom was invisible because the step only exports a base ref, so the pull
+  request comment silently lost its baseline delta and nothing failed.
+  `scripts/check-repo-yaml.go` now asserts that every `inputs.*` reference is
+  declared, and that every declared input is read.
 - **`LENSYXE_*` environment overrides now work when there is no config file.**
   `Load` returned early on "config not found", before the merge step ran, so the
   environment was never consulted. Every `LENSYXE_*` variable was therefore

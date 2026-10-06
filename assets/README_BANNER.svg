@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Lensyxe README banner.
+
+  The figures in the terminal panel are real output from
+  `lensyxe analyze examples/healthy-go`: the score, the three metric
+  values, and the bar are all measured, not drawn. Only the `path` line
+  is elided, because it is specific to the machine that ran it.
+
+  Rendered at a fixed size rather than scaled to the viewport, because a
+  banner that reflows in a narrow sidebar renders unreadably.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720"
+     role="img" aria-labelledby="lensyxe-banner-title lensyxe-banner-desc">
+  <title id="lensyxe-banner-title">Lensyxe — engineering intelligence for software repositories</title>
+  <desc id="lensyxe-banner-desc">A terminal window showing the output of the lensyxe analyze
+    command: an engineering health score of 79.6 out of 100, grade C, broken down into code
+    health 81.5, dependency health 90.0, and maintainability 66.6.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#010409"/>
+    </linearGradient>
+    <linearGradient id="logo" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#58a6ff"/>
+      <stop offset="55%" stop-color="#a371f7"/>
+      <stop offset="100%" stop-color="#3fb950"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="720" fill="url(#bg)"/>
+
+  <!-- Ambient glow, kept subtle so it does not compete with the text. -->
+  <ellipse cx="170" cy="120" rx="230" ry="150" fill="#1f6feb" opacity="0.16" filter="url(#soft)"/>
+  <ellipse cx="1060" cy="640" rx="250" ry="160" fill="#238636" opacity="0.13" filter="url(#soft)"/>
+
+  <!-- Wordmark -->
+  <text x="72" y="132"
+        font-family="'DejaVu Sans Mono',Menlo,Consolas,'Liberation Mono',monospace"
+        font-size="64" font-weight="700" letter-spacing="10" fill="url(#logo)">LENSYXE</text>
+  <text x="76" y="172"
+        font-family="'DejaVu Sans',Segoe UI,Helvetica,Arial,sans-serif"
+        font-size="19" fill="#8b949e" letter-spacing="0.4">Engineering intelligence for software repositories</text>
+
+  <!-- Terminal panel -->
+  <g>
+    <rect x="72" y="212" width="1056" height="428" rx="14"
+          fill="#161b22" stroke="#30363d" stroke-width="1"/>
+    <path d="M72 226a14 14 0 0 1 14-14h1028a14 14 0 0 1 14 14v14H72z" fill="#21262d"/>
+
+    <!-- Window controls -->
+    <circle cx="100" cy="226" r="6" fill="#ff5f56"/>
+    <circle cx="122" cy="226" r="6" fill="#ffbd2e"/>
+    <circle cx="144" cy="226" r="6" fill="#27c93f"/>
+    <text x="600" y="231" text-anchor="middle"
+          font-family="'DejaVu Sans Mono',Menlo,Consolas,monospace"
+          font-size="13" fill="#6e7681">lensyxe analyze .</text>
+
+    <!-- Body. Every line below is real output, with only the path elided. -->
+    <g font-family="'DejaVu Sans Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="16">
+      <text x="104" y="286" fill="#e6edf3">lensyxe 0.3.0  engineering intelligence</text>
+      <text x="104" y="316" fill="#6e7681">scanned 2026-10-06T03:42:25Z in 118 ms</text>
+
+      <text x="104" y="360" fill="#30363d">--------------------------------------------------------------</text>
+
+      <text x="104" y="396" fill="#e6edf3" font-weight="700">ENGINEERING HEALTH</text>
+
+      <!-- Score line: the number is the point of the whole tool. -->
+      <text x="104" y="432" fill="#e6edf3" font-size="30" font-weight="700">79.6</text>
+      <text x="190" y="432" fill="#6e7681" font-size="16">/ 100</text>
+      <text x="272" y="432" fill="#d29922" font-size="30" font-weight="700">C</text>
+
+      <!-- Score bar: 16 of 20 cells filled at 79.6%, matching the real output.
+           Drawn as rects rather than block glyphs on purpose. The terminal
+           renders this bar with U+2588 and U+2591, but U+2591 is a sparse dot
+           pattern that picks up the surrounding colour and reads as filled,
+           which inverts the meaning of the bar. Rects also remove the font
+           dependency entirely. -->
+      <g>
+        <rect x="340" y="408" width="24" height="28" rx="3" fill="#3fb950"/>
+        <rect x="368" y="408" width="24" height="28" rx="3" fill="#3fb950"/>
+        <rect x="396" y="408" width="24" height="28" rx="3" fill="#3fb950"/>
+        <rect x="424" y="408" width="24" height="28" rx="3" fill="#3fb950"/>
+        <rect x="452" y="408" width="24" height="28" rx="3" fill="#3fb950"/>
+        <rect x="480" y="408" width="24" height="28" rx="3" fill="#3fb950"/>
+        <rect x="508" y="408" width="24" height="28" rx="3" fill="#3fb950"/>
+        <rect x="536" y="408" width="24" height="28" rx="3" fill="#3fb950"/>
+        <rect x="564" y="408" width="24" height="28" rx="3" fill="#3fb950"/>
+        <rect x="592" y="408" width="24" height="28" rx="3" fill="#3fb950"/>
+        <rect x="620" y="408" width="24" height="28" rx="3" fill="#3fb950"/>
+        <rect x="648" y="408" width="24" height="28" rx="3" fill="#3fb950"/>
+        <rect x="676" y="408" width="24" height="28" rx="3" fill="#3fb950"/>
+        <rect x="704" y="408" width="24" height="28" rx="3" fill="#3fb950"/>
+        <rect x="732" y="408" width="24" height="28" rx="3" fill="#3fb950"/>
+        <rect x="760" y="408" width="24" height="28" rx="3" fill="#3fb950"/>
+        <rect x="788" y="408" width="24" height="28" rx="3" fill="#21262d"/>
+        <rect x="816" y="408" width="24" height="28" rx="3" fill="#21262d"/>
+        <rect x="844" y="408" width="24" height="28" rx="3" fill="#21262d"/>
+        <rect x="872" y="408" width="24" height="28" rx="3" fill="#21262d"/>
+      </g>
+      <text x="340" y="452" font-size="11" fill="#6e7681" letter-spacing="1">0</text>
+      <text x="884" y="452" font-size="11" fill="#6e7681" text-anchor="end">100</text>
+
+      <text x="104" y="472" fill="#8b949e">Overall adequate. Weakest dimension: Maintainability (Git) at 66.6.</text>
+
+      <!-- Metric rows, colour-coded exactly as the terminal colours them. -->
+      <text x="104" y="512" fill="#e6edf3">Code health</text>
+      <text x="420" y="512" fill="#d29922">81.5</text>
+      <text x="560" y="512" fill="#6e7681">40%</text>
+
+      <text x="104" y="540" fill="#e6edf3">Dependency health</text>
+      <text x="420" y="540" fill="#3fb950">90.0</text>
+      <text x="560" y="540" fill="#6e7681">30%</text>
+
+      <text x="104" y="568" fill="#e6edf3">Maintainability (Git)</text>
+      <text x="420" y="568" fill="#d29922">66.6</text>
+      <text x="560" y="568" fill="#6e7681">30%</text>
+    </g>
+
+    <line x1="104" y1="600" x2="1096" y2="600" stroke="#21262d" stroke-width="1"/>
+
+    <!-- The differentiator: local-first, stated as a fact. -->
+    <g font-family="'DejaVu Sans',Segoe UI,Helvetica,Arial,sans-serif" font-size="15" fill="#8b949e">
+      <text x="104" y="624">No telemetry. No account. No upload.</text>
+    </g>
+  </g>
+
+  <!-- Capability strip. Kept to five so it stays scannable. -->
+  <g font-family="'DejaVu Sans',Segoe UI,Helvetica,Arial,sans-serif" font-size="15">
+    <g fill="#6e7681">
+      <text x="76"  y="686">100% Go core</text>
+      <text x="232" y="686">offline SQLite history</text>
+      <text x="432" y="686">embedded dashboard</text>
+      <text x="614" y="686">CI gates with exit-code contract</text>
+      <text x="878" y="686">deterministic output</text>
+    </g>
+    <g fill="#30363d">
+      <text x="196" y="686">&#183;</text>
+      <text x="406" y="686">&#183;</text>
+      <text x="592" y="686">&#183;</text>
+      <text x="856" y="686">&#183;</text>
+    </g>
+  </g>
+</svg>

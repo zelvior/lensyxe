@@ -1,10 +1,26 @@
-# Lensyxe
+<div align="center">
+
+![CI](https://github.com/zelvior/lensyxe/actions/workflows/ci.yml/badge.svg)
+![Release](https://img.shields.io/github/v/release/zelvior/lensyxe?label=release)
+![License](https://img.shields.io/github/license/zelvior/lensyxe)
+![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8?logo=go&logoColor=white)
+
+</div>
+
+```text
+█░░ █▀▀ █▄░█ █▀ █▄█ ▀▄▀ █▀▀
+█▄▄ ██▄ █░▀█ ▄█ ░█░ █░█ ██▄
+Engineering Intelligence for Software Repositories
+```
 
 **Deterministic engineering intelligence for your codebase.**
 
 Lensyxe measures a repository's code structure, dependency surface, and git
 maintainability, and produces a single 0–100 Engineering Health Score you can
 act on and gate CI on.
+
+Every finding names the file, the number, and the threshold it crossed, because
+a score you cannot trace to a line of code is a colour rather than an action.
 
 It runs entirely on your machine. There is no telemetry, no account, and no
 upload. The same tree always produces the same score.
@@ -34,6 +50,30 @@ RISKS (2)
   🟠 HIGH Code health below expectations  (-7.5 pts)
     Code health      82.5/100 at 57% weight
 ```
+
+---
+
+## Quickstart
+
+```bash
+# What is the state of this repository?
+lensyxe analyze .
+
+# What did this branch do to the score since the tag?
+lensyxe compare v1.0.0 HEAD
+
+# The trend over time, from a local SQLite file inside the repository.
+lensyxe history
+
+# The dashboard, served from loopback by the same binary.
+lensyxe serve --open
+
+# The gate. Exit 0 clean, 1 broken, 2 threshold breached.
+lensyxe analyze . --fail-under-health 75
+```
+
+There is nothing else to install: no database server, no daemon, no account, no
+configuration file required. The first command is the whole product.
 
 ---
 
@@ -292,6 +332,13 @@ outage cannot fail your analysis.
 
 ## Architecture
 
+![Lensyxe pipeline: core engine to analyzers to scoring to output drivers](assets/architecture.svg)
+
+The pipeline runs left to right and the order is load-bearing — each stage
+consumes the previous stage's output, and two of them cannot work in a different
+sequence. Scoring is pure arithmetic with no I/O, which is what makes it
+testable without a filesystem.
+
 ```
 cmd/lensyxe/            CLI: cobra commands, exit-code mapping
 ├── server/              embedded dashboard + JSON API
@@ -363,6 +410,9 @@ worse than one that measures less.
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Every `.lensyxe.yml` key and its default. |
 | [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md) | Action inputs, permissions, and the `pull_request_target` hazard. |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Where the project is going, and what it has decided not to do. |
+| [docs/VSCODE_EXTENSION.md](docs/VSCODE_EXTENSION.md) | The editor extension: build, install, settings, and how it stays non-blocking. |
+| [docs/MAINTAINERS.md](docs/MAINTAINERS.md) | Triage rules, tagging conventions, the release checklist, and advisory response. |
+| [docs/LAUNCH_ANNOUNCEMENT.md](docs/LAUNCH_ANNOUNCEMENT.md) | Announcement copy, with every claim traced to its evidence. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Architecture, development setup, and testing rules. |
 | [SECURITY.md](SECURITY.md) | Local-first guarantees and how to report a vulnerability. |
 | [CHANGELOG.md](CHANGELOG.md) | What shipped. |
