@@ -70,8 +70,20 @@ jobs:
             exit 1
           fi
 
+      # `go mod tidy` then `git diff --exit-code`, NOT `go mod tidy -diff`.
+      #
+      # -diff was added in Go 1.23 and this job pins 1.22, the floor, where the
+      # flag is rejected and the command exits 2 before tidiness is checked. That
+      # is how the very first tagged release died in nineteen seconds, in the
+      # verify job, before a single binary was built.
       - name: Check module files are tidy
-        run: go mod tidy -diff
+        run: |
+          set -euo pipefail
+          go mod tidy
+          if ! git diff --exit-code -- go.mod go.sum; then
+            echo "::error::go.mod or go.sum is not tidy; run 'go mod tidy' and commit the result"
+            exit 1
+          fi
 
       - name: Vet
         run: go vet ./...
