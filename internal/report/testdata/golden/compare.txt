@@ -9,6 +9,7 @@ repo    /tmp/demo
 HEALTH SCORE
   88.0 -> 84.0   B   (-4.0)
   The score fell 4 points.
+  note  Maintainability is not measured: revisions are exported without Git history, so its weight is redistributed.
 
   metric deltas
   metric       from  to  delta

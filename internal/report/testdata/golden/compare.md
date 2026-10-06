@@ -6,6 +6,12 @@
 
 **Delta: -4.0.** The score fell 4 points.
 
+> **Note.** Maintainability is not measured in a comparison. Both revisions
+> are exported with `git archive`, which produces no Git history, so that
+> dimension's weight is redistributed across the others. The absolute scores
+> here are therefore not comparable with `lensyxe analyze` on the same commit.
+> The delta is: both revisions are measured the same way.
+
 ## Metric deltas
 
 | Metric | A | B | Delta | Direction |

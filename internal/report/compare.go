@@ -38,6 +38,14 @@ func RenderCompareMarkdown(w io.Writer, res *compare.Result) error {
 	b.WriteString("\n")
 	fmt.Fprintf(&b, "**Delta: %+.1f.** %s\n\n", res.ScoreDelta, res.Verdict)
 
+	// See RenderCompare for why this composite is not on the same scale as
+	// `lensyxe analyze`. Both sides are measured identically, so the delta stands.
+	b.WriteString("> **Note.** Maintainability is not measured in a comparison. Both revisions\n" +
+		"> are exported with `git archive`, which produces no Git history, so that\n" +
+		"> dimension's weight is redistributed across the others. The absolute scores\n" +
+		"> here are therefore not comparable with `lensyxe analyze` on the same commit.\n" +
+		"> The delta is: both revisions are measured the same way.\n\n")
+
 	if len(res.Metrics) > 0 {
 		b.WriteString("## Metric deltas\n\n")
 		b.WriteString("| Metric | A | B | Delta | Direction |\n")
@@ -165,6 +173,23 @@ func RenderCompare(w io.Writer, res *compare.Result) error {
 		scoreStyle(res.ScoreA).Render(res.GradeA),
 		deltaStyle.Render(fmt.Sprintf("(%+.1f)", res.ScoreDelta)))
 	b.WriteString(styleDim.Render("  " + res.Verdict))
+	b.WriteByte('\n')
+
+	// The composite score here is not the same measure as `lensyxe analyze`'s,
+	// and the difference is large enough to mislead.
+	//
+	// Both revisions are materialised with `git archive`, which produces a
+	// directory with no .git in it. Maintainability is read from Git history, so
+	// it is never measurable here: its weight is redistributed across the
+	// dimensions that could be measured, which moves the absolute score. On this
+	// repository, compare reports 65.0 for a commit that analyze scores 67.3.
+	//
+	// The delta is unaffected -- both sides are measured the same way -- so the
+	// comparison remains valid. Only the absolute number is on a different scale,
+	// and saying so is cheaper than a user diffing the two outputs and concluding
+	// the tool is inconsistent with itself.
+	b.WriteString(styleDim.Render("  note  Maintainability is not measured: revisions are exported" +
+		" without Git history, so its weight is redistributed."))
 	b.WriteByte('\n')
 	b.WriteByte('\n')
 

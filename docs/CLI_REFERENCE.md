@@ -138,6 +138,14 @@ lensyxe compare <rev-a> <rev-b> [flags]
 Both arguments are resolved through `git archive`, so the working tree is
 never modified and uncommitted work is not included.
 
+**The composite score is not on the same scale as `lensyxe analyze`.** A `git
+archive` export contains no `.git`, so Maintainability cannot be measured and its
+weight is redistributed across the dimensions that could be. On this repository,
+`compare` reports 65.0 for a commit that `analyze` scores 67.3. The *delta* is
+unaffected, because both revisions are measured the same way; only the absolute
+number is. Use `analyze` for an absolute score and `compare` for the movement
+between two revisions.
+
 | Flag | Default | Description |
 | :--- | :--- | :--- |
 | `--format <fmt>` | `terminal` | `terminal`, `markdown`, or `json`. |
