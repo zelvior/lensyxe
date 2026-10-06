@@ -127,6 +127,14 @@ release:
   # window entirely, because the release already exists by the time the first
   # upload is attempted.
   use_existing_draft: true
+  # Tolerate a release that already carries assets.
+  #
+  # A draft release left behind by an earlier failed run is invisible to the
+  # public releases API, so a retry after a partial failure finds assets already
+  # present and every upload fails with 422 already_exists. Replacing them in
+  # place makes the release reproducible: the same tag always ends up with the
+  # same artifacts, whether or not a previous attempt got partway.
+  replace_existing_artifacts: true
   # The action spec ships alongside the binaries so a consumer can pin the
   # Action to the release they downloaded rather than tracking a moving ref.
   # Each entry is a glob only: goreleaser's extra_files has no rename field, so
