@@ -7,14 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## About the entries below
 
-Dates for the initial releases are recorded at tag time by the release
-automation. Confirm them against the actual tag before publishing, because a
-changelog that claims a release date that is wrong is worse than one with no
-date.
+Dates are written by hand at release time. An earlier version of this file
+claimed the release automation recorded them; nothing in `scripts/` or either
+workflow does that, so the claim was removed rather than left standing.
 
 ---
 
 ## [Unreleased]
+
+## [1.0.0-rc1] - 2026-10-06
+
+The first public release. It is a release candidate because it has never been
+installed by anyone outside the machine it was built on, and because the parts
+of the pipeline that only run at tag time are exercised for the first time by
+this very tag.
 
 ### Changed
 
