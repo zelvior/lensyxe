@@ -171,6 +171,43 @@ jobs:
           cat /tmp/version.json || true
           kill "$(cat /tmp/serve.pid)" 2>/dev/null || true
 
+      # ------------------------------------------------------ editor extension
+      #
+      # The VSIX is published alongside the binaries so a user never has to have
+      # Node, npm, or a Go toolchain installed to get the editor experience.
+      #
+      # It is built after the dashboard rather than before it: the extension
+      # shells out to the lensyxe binary and never touches the dashboard, so
+      # there is no ordering dependency. It is a single artifact regardless of
+      # platform, because a VS Code extension is JavaScript and the same package
+      # serves every OS.
+      - name: Set up Node for the extension
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: ide/vscode/package-lock.json
+
+      - name: Build and package the extension
+        working-directory: ide/vscode
+        run: |
+          npm ci --no-audit --no-fund
+          npm run compile
+          # Regenerate and require it to match what is committed, so the icon
+          # cannot drift from its generator between releases.
+          npm run icon
+          if ! git diff --exit-code -- media/icon.png; then
+            echo "::error::media/icon.png does not match its generator"
+            exit 1
+          fi
+          npm run package
+
+      - name: Check the packaged extension
+        # Run from the repository root: the validator resolves
+        # ide/vscode/package.json relative to the working directory, so invoking
+        # it from inside ide/vscode would report the manifest as missing.
+        run: go run ide/vscode/scripts/check-manifest-docs.go
+
       # ------------------------------------------------------------ release
       - name: Run goreleaser
         uses: goreleaser/goreleaser-action@v7

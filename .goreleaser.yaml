@@ -118,6 +118,14 @@ release:
   extra_files:
     - glob: checksums.txt
     - glob: action/action.yml
+    # The editor extension, so a VS Code user downloads a finished package rather
+    # than needing Node, npm, and a Go toolchain to build one. Built by the
+    # release workflow immediately before this step, so a broken extension build
+    # fails the release instead of shipping an absent artifact.
+    #
+    # A VSIX is platform-independent: the extension is JavaScript and shells out
+    # to the separately published binary, so one file serves every OS.
+    - glob: ide/vscode/*.vsix
   footer: |
     ## Verifying a download
 
