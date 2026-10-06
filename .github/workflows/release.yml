@@ -240,13 +240,20 @@ jobs:
       - name: Build and package the extension
         working-directory: ide/vscode
         run: |
+          set -euo pipefail
           npm ci --no-audit --no-fund
           npm run compile
           # Regenerate and require it to match what is committed, so the icon
           # cannot drift from its generator between releases.
+          #
+          # The paths are repo-root relative on purpose. This step runs with
+          # working-directory ide/vscode, and a git diff against a
+          # subdirectory-relative path silently compares the committed icon with
+          # itself -- which is how the first release attempt "passed" this check
+          # while the generator was writing somewhere else entirely.
           npm run icon
-          if ! git diff --exit-code -- media/icon.png; then
-            echo "::error::media/icon.png does not match its generator"
+          if ! git diff --exit-code -- ide/vscode/media/icon.png; then
+            echo "::error::ide/vscode/media/icon.png does not match its generator"
             exit 1
           fi
           npm run package

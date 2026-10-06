@@ -13,11 +13,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 const (
@@ -71,7 +73,18 @@ func main() {
 			toPx(polyline[i+1][0]), toPx(polyline[i+1][1]), w)
 	}
 
-	out := filepath.Join("ide", "vscode", "media", "icon.png")
+	// The output path is resolved from this file's own location, not from the
+	// working directory.
+	//
+	// `npm run icon` runs with working-directory ide/vscode, so a relative path
+	// resolved ide/vscode/ide/vscode/media/icon.png. That is worse than writing
+	// to the wrong place: the release then compared the committed icon against
+	// itself, concluded the generator matched, and goreleaser refused the release
+	// because of the stray directory the generator had just created.
+	out, err := outputPath()
+	if err != nil {
+		fail(err)
+	}
 	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 		fail(err)
 	}
@@ -85,6 +98,27 @@ func main() {
 		fail(err)
 	}
 	fmt.Printf("wrote %s (%dx%d)\n", out, size, size)
+}
+
+// outputPath returns the icon location, anchored to this source file so it does
+// not depend on where the command was invoked from.
+//
+// runtime.Caller reports the path recorded at compile time, which for
+// `go run scripts/gen-icon.go` is the module-relative path of this file, so the
+// extension root is its grandparent's parent. An explicit argument overrides it
+// for callers that want to write somewhere else.
+func outputPath() (string, error) {
+	if len(os.Args) > 1 {
+		return os.Args[1], nil
+	}
+
+	_, self, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", errors.New("cannot determine this script's location")
+	}
+	// <repo>/ide/vscode/scripts/gen-icon.go -> <repo>/ide/vscode
+	extRoot := filepath.Dir(filepath.Dir(self))
+	return filepath.Join(extRoot, "media", "icon.png"), nil
 }
 
 // drawLine rasterizes a line segment as a filled circle swept along its length.

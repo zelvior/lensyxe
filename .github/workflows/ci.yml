@@ -369,15 +369,20 @@ jobs:
       - name: Install and build the extension
         working-directory: ide/vscode
         run: |
+          set -euo pipefail
           npm ci --no-audit --no-fund
           npm run compile
           # The icon is generated rather than hand-drawn, so this proves the
           # generator still runs and that a regenerated icon is byte-identical to
           # the committed one. A drift there means the committed file no longer
           # matches the source it is generated from.
+          #
+          # Repo-root relative, because this step runs in ide/vscode and a
+          # subdirectory-relative path would compare the committed icon with
+          # itself.
           npm run icon
-          if ! git diff --exit-code -- media/icon.png; then
-            echo "::error::media/icon.png does not match its generator; run 'npm run icon' and commit the result"
+          if ! git diff --exit-code -- ide/vscode/media/icon.png; then
+            echo "::error::ide/vscode/media/icon.png does not match its generator; run 'npm run icon' and commit the result"
             exit 1
           fi
 
