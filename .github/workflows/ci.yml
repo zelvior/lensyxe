@@ -58,7 +58,15 @@ jobs:
           go-version: ${{ matrix.go }}
           cache-dependency-path: go.sum
 
+      # Every step below is bash, on purpose and explicitly.
+      #
+      # windows-latest defaults to PowerShell, where `set -euo pipefail` is a
+      # command-not-found error and `grep` does not exist. Without this the
+      # formatting check fails on Windows for a reason that has nothing to do
+      # with formatting, and the matrix is supposed to be testing three
+      # platforms rather than two and a shell dialect.
       - name: Check formatting
+        shell: bash
         run: |
           set -euo pipefail
           unformatted="$(gofmt -l . | grep -v '^dashboard/' || true)"
@@ -68,11 +76,22 @@ jobs:
             exit 1
           fi
 
-      # go mod tidy -diff reports what it would change and exits non-zero
-      # without rewriting, so a dependency drift fails the build instead of
-      # being silently absorbed into a commit.
+      # `go mod tidy` then `git diff --exit-code`, NOT `go mod tidy -diff`.
+      #
+      # The -diff flag was added in Go 1.23, and this job pins 1.22 because that
+      # is the floor the README claims. Using -diff here meant the check failed
+      # with a flag-parsing error on every runner rather than testing tidiness at
+      # all. This idiom works on every version, and it fails for the reason it
+      # claims to.
       - name: Check module files are tidy
-        run: go mod tidy -diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          go mod tidy
+          if ! git diff --exit-code -- go.mod go.sum; then
+            echo "::error::go.mod or go.sum is not tidy; run 'go mod tidy' and commit the result"
+            exit 1
+          fi
 
       - name: Vet
         run: go vet ./...
@@ -260,12 +279,16 @@ jobs:
       # than fix. Bump it in its own commit, and read the diff of the linter's
       # own release notes before doing so.
       #
-      # 2.14.0 is the version the configuration in .golangci.yml was verified
-      # against, not the newest one available. Matching what was tested is worth
-      # more than being current, because the alternative is discovering the
-      # mismatch on a pull request that has nothing to do with linting.
+      # v7 is required for golangci-lint v2. v6 rejects a v2 version string with
+      # "golangci-lint v2 is not supported by golangci-lint-action v6", which is
+      # an unhelpful message for a config that is correct.
+      #
+      # 2.14.0 is the version .golangci.yml was verified against, not the newest
+      # one available. Matching what was tested is worth more than being current,
+      # because the alternative is discovering the mismatch on a pull request
+      # that has nothing to do with linting.
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
           version: v2.14.0
 
@@ -296,6 +319,27 @@ jobs:
       - name: Validate repository YAML
         run: go run scripts/check-repo-yaml.go
 
+      # Build the extension BEFORE validating its manifest.
+      #
+      # The manifest points at out/extension.js, which is generated and gitignored,
+      # so on a fresh checkout the path does not exist. Validating first reported
+      # "manifest main ./out/extension.js is not built yet" and failed the job on
+      # a tree that was perfectly correct.
+      - name: Install and build the extension
+        working-directory: ide/vscode
+        run: |
+          npm ci --no-audit --no-fund
+          npm run compile
+          # The icon is generated rather than hand-drawn, so this proves the
+          # generator still runs and that a regenerated icon is byte-identical to
+          # the committed one. A drift there means the committed file no longer
+          # matches the source it is generated from.
+          npm run icon
+          if ! git diff --exit-code -- media/icon.png; then
+            echo "::error::media/icon.png does not match its generator; run 'npm run icon' and commit the result"
+            exit 1
+          fi
+
       # The extension manifest and its documentation drift apart silently:
       # removing a setting from package.json leaves a row in the README telling
       # users to change something that no longer exists. Nothing in the Go build
@@ -303,28 +347,34 @@ jobs:
       - name: Validate the extension manifest against its docs
         run: go run ide/vscode/scripts/check-manifest-docs.go
 
-      # The manifest references an icon, and the icon is generated rather than
-      # committed by hand. This asserts it is actually present, so a forgotten
-      # `npm run icon` fails here instead of at packaging time on someone's
-      # machine.
-      - name: Build the extension
+      # Package it, so a broken .vscodeignore or a missing asset fails here
+      # rather than at release time. The artifact is uploaded rather than thrown
+      # away so a reviewer can install the exact build CI produced.
+      - name: Package the extension
         working-directory: ide/vscode
-        run: |
-          npm ci --no-audit --no-fund
-          npm run compile
-          npm run icon
-          # Re-run the validator now that the entrypoint and icon exist, so the
-          # packaging preconditions are checked in CI rather than at release.
-          cd ../..
-          go run ide/vscode/scripts/check-manifest-docs.go
+        run: npm run package
+
+      - name: Upload the VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: lensyxe-vscode
+          path: ide/vscode/*.vsix
+          if-no-files-found: error
 
       # Drives the compiled CLI client against a real binary. This is how the
       # abort-classification bug was found: aborting a child makes Node emit
       # `error` before `close`, so a superseded run looked like a startup failure
       # and would have popped an error on every save.
       - name: Smoke-test the extension CLI client
-        working-directory: ide/vscode
-        run: node scripts/smoke.js ../lensyxe ../examples/risky-go
+        run: |
+          set -euo pipefail
+          # The binary is built at the repository root. From ide/vscode the root
+          # is two levels up, not one: ../lensyxe resolved to ide/lensyxe, which
+          # does not exist, so this step would have failed with a bare ENOENT
+          # that says nothing about the extension.
+          go build -o lensyxe ./cmd/lensyxe
+          cd ide/vscode
+          node scripts/smoke.js ../../lensyxe ../../examples/risky-go
 
       # The installer's pure functions are asserted in a shell script. Running
       # them here means the checksum verification and platform mapping cannot rot

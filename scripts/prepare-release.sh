@@ -64,11 +64,33 @@ log "gofmt clean"
 
 # ----------------------------------------------------------- module files
 #
-# -diff reports what tidy would change and exits non-zero, without rewriting.
-# Rewriting here would silently absorb a dependency change into a tag.
+# `go mod tidy` followed by `git diff --exit-code`, not `go mod tidy -diff`.
+#
+# -diff was added in Go 1.23. The release is built with the pinned toolchain and
+# this script has always been expected to work with the supported floor of 1.22,
+# where -diff is an unknown flag and the command exits non-zero before it has
+# checked anything. The failure reported "go.mod or go.sum is not tidy" for a
+# tree that was perfectly tidy, which is worse than no check.
+#
+# The rewrite-then-diff order is deliberate. tidy writing to the files and git
+# reporting the change keeps the drift visible in the error output instead of
+# silently absorbing a dependency change into a tag, and it works on every
+# supported toolchain.
 
-if ! output="$(go mod tidy -diff 2>&1)"; then
-  echo "::error::go.mod or go.sum is not tidy:"
+if ! output="$(go mod tidy 2>&1)"; then
+  echo "::error::go mod tidy failed:"
+  echo "$output"
+  exit 1
+fi
+
+if ! output="$(git diff -- go.mod go.sum 2>&1)"; then
+  echo "::error::could not diff the module files:"
+  echo "$output"
+  exit 1
+fi
+
+if [ -n "$output" ]; then
+  echo "::error::go.mod or go.sum is not tidy. Run 'go mod tidy' and commit the result:"
   echo "$output"
   exit 1
 fi

@@ -244,11 +244,34 @@ func TestShortenSHAAndAtoi(t *testing.T) {
 }
 
 func TestNormalizePath(t *testing.T) {
-	if got := normalizePath("internal\\a.go"); got != "internal/a.go" {
-		t.Errorf("normalizePath = %q, want forward slashes", got)
+	// filepath.ToSlash rewrites the *native* separator, so what it does to a
+	// backslash depends on the platform. Asserting the Windows outcome on Linux
+	// encoded a false claim about the function: it passed locally and failed on
+	// every non-Windows CI runner.
+	//
+	// The platform-specific assertion is the correct one. On Linux a backslash is
+	// a legal filename character, so converting it would corrupt the name of a
+	// real file; on Windows it is the separator and must be rewritten.
+	if filepath.Separator == '\\' {
+		if got := normalizePath("internal\\a.go"); got != "internal/a.go" {
+			t.Errorf("normalizePath = %q, want forward slashes", got)
+		}
+	} else {
+		if got := normalizePath("internal\\a.go"); got != "internal\\a.go" {
+			t.Errorf("normalizePath = %q; on this platform a backslash is a legal "+
+				"filename character and must be preserved", got)
+		}
+	}
+
+	// Separator-independent behaviour, asserted everywhere.
+	if got := normalizePath("internal/sub/a.go"); got != "internal/sub/a.go" {
+		t.Errorf("normalizePath = %q, want forward slashes left alone", got)
 	}
 	if got := normalizePath("   "); got != "" {
 		t.Errorf("normalizePath = %q, want empty", got)
+	}
+	if got := normalizePath("  a/b.go  "); got != "a/b.go" {
+		t.Errorf("normalizePath = %q, want surrounding space trimmed", got)
 	}
 }
 
