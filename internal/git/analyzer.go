@@ -140,22 +140,63 @@ func Analyze(ctx context.Context, root string, cfg Config) (Result, error) {
 		}
 	}
 
-	// Step 3: churn over the analysis window. `git log --numstat` gives
-	// add/delete counts per file in one pass; no per-commit subprocesses.
+	// Step 3: history-derived statistics.
+	//
+	// These four reads are independent of each other and each costs a process
+	// spawn, which on Windows dominates the whole analysis: the code walk over
+	// this repository is 18ms while these calls are the bulk of a ~375ms run.
+	// Running them concurrently replaces the sum of the spawns with the slowest
+	// one, and changes no output.
+	//
+	// Nothing is assigned to stats until after wait(), which supplies the
+	// happens-before edge, so no field is written concurrently. The names are
+	// prefixed to avoid colliding with the metadata pass above, which has its
+	// own authorErr.
 	since := time.Now().AddDate(0, 0, -cfg.WindowDays)
-	numstat, logErr := run(ctx, root, cfg.Timeout, "log",
-		"--since="+since.Format(time.RFC3339),
-		"--no-merges",
-		"--pretty=format:"+commitSeparator,
-		"--numstat",
-		"HEAD")
-	if logErr != nil && strings.TrimSpace(numstat) == "" {
-		if stats.Note == "" {
-			stats.Note = "git history unavailable"
-		}
+	sinceArg := "--since=" + since.Format(time.RFC3339)
+
+	var (
+		histNumstat, histWindow, histAuthors, histLast string
+		histNumstatErr, histWindowErr                  error
+		histAuthorsErr, histLastErr                    error
+	)
+
+	wg = newGroup()
+	wg.run(func() error {
+		// `git log --numstat` gives add/delete counts per file in one pass; no
+		// per-commit subprocesses.
+		histNumstat, histNumstatErr = run(ctx, root, cfg.Timeout, "log",
+			sinceArg,
+			"--no-merges",
+			"--pretty=format:"+commitSeparator,
+			"--numstat",
+			"HEAD")
+		return histNumstatErr
+	})
+	wg.run(func() error {
+		histWindow, histWindowErr = run(ctx, root, cfg.Timeout, "rev-list",
+			"--count", sinceArg, "HEAD")
+		return histWindowErr
+	})
+	wg.run(func() error {
+		histAuthors, histAuthorsErr = run(ctx, root, cfg.Timeout, "log",
+			sinceArg, "--no-merges", "--format=%aN", "HEAD")
+		return histAuthorsErr
+	})
+	wg.run(func() error {
+		histLast, histLastErr = run(ctx, root, 10*time.Second, "log", "-1", "--format=%aI", "HEAD")
+		return histLastErr
+	})
+	// A failure in any of these leaves that field at its zero value rather than
+	// aborting, which is the tolerance the parallel metadata pass above already
+	// applies: a partial history still yields a usable snapshot.
+	_ = wg.wait()
+
+	if histNumstatErr != nil && strings.TrimSpace(histNumstat) == "" && stats.Note == "" {
+		stats.Note = "git history unavailable"
 	}
 
-	entries, added, deleted := parseNumstat(numstat, commitSeparator)
+	entries, added, deleted := parseNumstat(histNumstat, commitSeparator)
 	stats.LinesAdded = added
 	stats.LinesDeleted = deleted
 	stats.ChurnFiles = len(entries)
@@ -164,21 +205,17 @@ func Analyze(ctx context.Context, root string, cfg Config) (Result, error) {
 	stats.ChurnHotspotRate = churnHotspotRate(entries, added+deleted)
 	churnByPath := churnLookup(entries)
 
-	windowCommits, wcErr := run(ctx, root, cfg.Timeout, "rev-list",
-		"--count", "--since="+since.Format(time.RFC3339), "HEAD")
-	if wcErr == nil {
-		stats.WindowCommits = atoi(strings.TrimSpace(windowCommits))
+	if histWindowErr == nil {
+		stats.WindowCommits = atoi(strings.TrimSpace(histWindow))
 	}
 
-	// Step 4: bus factor from per-author commit counts inside the window.
-	perAuthor, baErr := run(ctx, root, cfg.Timeout, "log",
-		"--since="+since.Format(time.RFC3339), "--no-merges", "--format=%aN", "HEAD")
-	if baErr == nil {
-		stats.BusFactor = busFactor(countAuthors(perAuthor), cfg.BusyAuthorShare)
+	// Bus factor from per-author commit counts inside the window.
+	if histAuthorsErr == nil {
+		stats.BusFactor = busFactor(countAuthors(histAuthors), cfg.BusyAuthorShare)
 	}
 
-	if last, err := run(ctx, root, 10*time.Second, "log", "-1", "--format=%aI", "HEAD"); err == nil {
-		if t, perr := time.Parse(time.RFC3339, strings.TrimSpace(last)); perr == nil {
+	if histLastErr == nil {
+		if t, perr := time.Parse(time.RFC3339, strings.TrimSpace(histLast)); perr == nil {
 			stats.LastCommitAt = t.UTC()
 			stats.DaysSinceCommit = int(time.Since(t).Hours() / 24)
 			if stats.DaysSinceCommit < 0 {
