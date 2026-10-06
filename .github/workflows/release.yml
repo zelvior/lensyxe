@@ -265,6 +265,25 @@ jobs:
         run: go run ide/vscode/scripts/check-manifest-docs.go
 
       # ------------------------------------------------------------ release
+      # Create the draft before goreleaser runs, and let goreleaser fill it.
+      #
+      # goreleaser creating the release itself and then immediately uploading to
+      # it is a race with GitHub's uploads endpoint, which answered 404 Not Found
+      # for a release created seconds earlier. That aborted the publish after all
+      # six binaries were built and archived, which is the most expensive place to
+      # find out.
+      #
+      # Creating the draft here means the release already exists when the first
+      # upload is attempted. Only the tag push creates it; a manual run has no tag
+      # and is handled by the snapshot step below.
+      - name: Create the draft release
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: true
+          name: ${{ github.ref_name }}
+
       - name: Run goreleaser
         uses: goreleaser/goreleaser-action@v7
         with:

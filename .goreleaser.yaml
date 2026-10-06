@@ -111,16 +111,23 @@ release:
   prerelease: auto
   draft: false
   replace_existing_draft: true
+  # Fill a release the workflow created before goreleaser started.
+  #
+  # Creating the release and immediately uploading to it is a race: GitHub's
+  # uploads endpoint returned 404 Not Found for a release goreleaser had just
+  # created, which aborted the publish after all six binaries had been built and
+  # archived. Pre-creating the draft and pointing goreleaser at it removes the
+  # window entirely, because the release already exists by the time the first
+  # upload is attempted.
+  use_existing_draft: true
   # The action spec ships alongside the binaries so a consumer can pin the
   # Action to the release they downloaded rather than tracking a moving ref.
   # Each entry is a glob only: goreleaser's extra_files has no rename field, so
   # the destination keeps its source name.
   extra_files:
-    # These globs are resolved from the project root, not from the dist
-    # directory. goreleaser writes the checksum file into dist/ itself, so the
-    # bare name "checksums.txt" matched nothing and aborted the publish step
-    # after all six binaries had already been built and archived.
-    - glob: dist/checksums.txt
+    # checksums.txt is deliberately absent. goreleaser already publishes the
+    # checksum file as an artifact of the checksum section, so listing it here as
+    # well queued the same name twice, and the duplicate upload is what failed.
     - glob: action/action.yml
     # The editor extension, so a VS Code user downloads a finished package rather
     # than needing Node, npm, and a Go toolchain to build one. Built by the
