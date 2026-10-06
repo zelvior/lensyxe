@@ -9,6 +9,7 @@ help output is correct and this file is stale.
 - [Global flags](#global-flags)
 - [Exit codes](#exit-codes)
 - [`lensyxe analyze`](#lensyxe-analyze)
+- [`lensyxe status`](#lensyxe-status)
 - [`lensyxe compare`](#lensyxe-compare)
 - [`lensyxe history`](#lensyxe-history)
 - [`lensyxe watch`](#lensyxe-watch)
@@ -126,6 +127,46 @@ lensyxe analyze . --monorepo --format markdown
 ```
 
 ---
+
+## `lensyxe status`
+
+Show where a repository stands right now.
+
+```
+lensyxe status [path] [flags]
+```
+
+| Flag | Default | Description |
+| :--- | :--- | :--- |
+| `--format <fmt>` | `terminal` | `terminal`, `json`, or `markdown`. |
+| `--no-persist` | `false` | Accepted for symmetry with `analyze`; status never records a run. |
+
+This is the same analysis `lensyxe analyze` performs, rendered in a few lines:
+the score, the three dimensions, a risk count, and which dimension is weakest.
+It is not a cheaper measurement, only a shorter rendering, so the score here and
+the score in `analyze` always agree.
+
+`status` does **not** record a run to the history database. Checking whether you
+are healthy should not itself become an entry in your health history.
+
+## Git-style aliases
+
+Several commands answer to a second name, so the spellings you already have in
+your fingers work here. Aliases are not separate commands: they share the
+implementation, the flags, and the documented behaviour, and cannot drift apart.
+
+| Command | Also accepts | Note |
+| :--- | :--- | :--- |
+| `lensyxe analyze` | `an` | |
+| `lensyxe status` | `st` | |
+| `lensyxe history` | `log`, `lg` | Reads recorded health history. It does not read commit messages. |
+| `lensyxe compare` | `diff`, `df` | |
+| `lensyxe watch` | `w` | |
+| `lensyxe serve` | `ui` | |
+
+These are a naming convenience, not a claim to be a version control system.
+`status` reads health and `log` reads recorded health runs; neither can stage,
+commit, or push anything.
 
 ## `lensyxe compare`
 

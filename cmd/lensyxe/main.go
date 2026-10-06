@@ -109,12 +109,53 @@ Everything runs locally. No source code leaves your machine.`),
 	root.PersistentFlags().StringVar(&a.configFile, "config", "", "path to an Lensyxe config file")
 
 	root.AddCommand(newAnalyzeCmd(a))
+	root.AddCommand(newStatusCmd(a))
 	root.AddCommand(newCompareCmd(a))
 	root.AddCommand(newHistoryCmd(a))
 	root.AddCommand(newWatchCmd(a))
 	root.AddCommand(newServeCmd(a))
 	root.AddCommand(newVersionCmd())
+
+	// Git-style spellings, so the commands someone already has in their fingers
+	// work here too. These are aliases rather than separate commands on purpose:
+	// one implementation, one set of flags, one set of documented behaviour, and
+	// no way for the two names to drift apart.
+	//
+	// They are not a claim to be a version control system. `status` reads health,
+	// `log` reads recorded health history, and neither can stage or commit.
+	// Aliases are listed by `lensyxe <cmd> --help` and in CLI_REFERENCE.md.
+	for _, c := range root.Commands() {
+		for _, alias := range gitStyleAliases(c.Name()) {
+			c.Aliases = append(c.Aliases, alias)
+		}
+	}
 	return root
+}
+
+// gitStyleAliases maps a command name to the short and idiomatic spellings it
+// answers to.
+//
+// `log` and `diff` are the interesting ones: both name an operation the tool
+// genuinely performs, so a reader arriving from git reaches for them and they
+// work. `lg` and `df` exist for muscle memory, and neither is discoverable
+// without the documentation.
+func gitStyleAliases(name string) []string {
+	switch name {
+	case "analyze":
+		return []string{"an"}
+	case "status":
+		return []string{"st"}
+	case "history":
+		return []string{"log", "lg"}
+	case "compare":
+		return []string{"diff", "df"}
+	case "watch":
+		return []string{"w"}
+	case "serve":
+		return []string{"ui"}
+	default:
+		return nil
+	}
 }
 
 // loadConfig resolves the configuration for this invocation.

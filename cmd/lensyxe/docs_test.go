@@ -344,6 +344,31 @@ func TestEveryCommandIsDocumented(t *testing.T) {
 	}
 }
 
+// Every alias must be documented.
+//
+// An alias is invisible in `--help` unless you happen to run the command you
+// already know the name of, so an undocumented one is effectively unreachable.
+// This is the same drift that let test-install.sh report a false failure for
+// several commits while its template extraction no longer matched anything.
+func TestEveryCommandAliasIsDocumented(t *testing.T) {
+	body := readDoc(t, filepath.Join(docsDir, "CLI_REFERENCE.md"))
+	root := newRootCmd(&app{})
+
+	seen := 0
+	for _, cmd := range root.Commands() {
+		for _, alias := range cmd.Aliases {
+			seen++
+			if !strings.Contains(body, "`"+alias+"`") {
+				t.Errorf("alias %q for %q is not documented in CLI_REFERENCE.md",
+					alias, cmd.Name())
+			}
+		}
+	}
+	if seen == 0 {
+		t.Fatal("no aliases were parsed; this test is not exercising anything")
+	}
+}
+
 // The exit-code table is a contract with every pipeline that uses Lensyxe.
 func TestExitCodeContractIsDocumented(t *testing.T) {
 	body := readDoc(t, filepath.Join(docsDir, "CLI_REFERENCE.md"))
