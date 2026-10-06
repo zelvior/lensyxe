@@ -74,12 +74,19 @@ archives:
         formats: [zip]
     # The name mirrors `uname` conventions so a Linux user can recognize
     # x86_64 and an arm64 host without looking it up.
-    name_template: >-
-      {{ .ProjectName }}_
-      {{ .Version }}_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else }}{{ .Arch }}{{ end }}
+    # One line, on purpose.
+    #
+    # This was a YAML folded block, where a newline between two template actions
+    # folds into a literal space. Go templates emit that space, so the published
+    # archives were named "lensyxe_ 1.0.0-rc1_Darwin_arm64.tar.gz" with a space
+    # after the first underscore, while install.sh builds the name without one.
+    # Every install would have 404'd on a filename that looked entirely correct.
+    #
+    # A folded block cannot express "no whitespace here" reliably; a single
+    # quoted line cannot accidentally grow one. TestInstallerMatchesRelease-
+    # ArtifactNames renders this template and fails on any whitespace, so the
+    # mistake cannot come back unnoticed.
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ title .Os }}_{{ if eq .Arch "amd64" }}x86_64{{ else }}{{ .Arch }}{{ end }}'
     # The files travel with the binary so an archive is self-describing: a user
     # who unpacks it can read what the tool is and what the license is without
     # going back to the repository.

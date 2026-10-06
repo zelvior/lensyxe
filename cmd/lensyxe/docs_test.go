@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"testing"
+	"text/template"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -480,6 +482,162 @@ func TestInstallerMatchesReleaseArtifactNames(t *testing.T) {
 	if !strings.Contains(installer, "checksums.txt") {
 		t.Error("install.sh does not verify checksums.txt")
 	}
+
+	// Render the template and compare it to what the installer builds.
+	//
+	// Checking that the tokens are present is not enough, and that is the whole
+	// point of this addition: the tokens were all present while every published
+	// archive was named "lensyxe_ 1.0.0-rc1_Darwin_arm64.tar.gz", because a YAML
+	// folded block had turned a newline between two actions into a literal space
+	// that install.sh does not emit. Every install would have 404'd.
+	nameTmpl, ok := archiveNameTemplate(t, spec)
+	if !ok {
+		return // already reported
+	}
+
+	// install.sh builds: "${BIN_NAME}_${version}_${os}_${arch}.${ext}"
+	wantRe := regexp.MustCompile(`archive="\$\{BIN_NAME\}_\$\{version\}_\$\{os\}_\$\{arch\}\.\$\{ext\}"`)
+	if !wantRe.MatchString(installer) {
+		t.Errorf("install.sh no longer builds the archive name as " +
+			"${BIN_NAME}_${version}_${os}_${arch}.${ext}; this test cannot " +
+			"confirm the two agree, so it is reporting rather than passing silently")
+	}
+
+	for _, tc := range []struct{ os, arch, want string }{
+		{"darwin", "amd64", "lensyxe_1.0.0-rc1_Darwin_x86_64"},
+		{"darwin", "arm64", "lensyxe_1.0.0-rc1_Darwin_arm64"},
+		{"linux", "amd64", "lensyxe_1.0.0-rc1_Linux_x86_64"},
+		{"linux", "arm64", "lensyxe_1.0.0-rc1_Linux_arm64"},
+		{"windows", "amd64", "lensyxe_1.0.0-rc1_Windows_x86_64"},
+		{"windows", "arm64", "lensyxe_1.0.0-rc1_Windows_arm64"},
+	} {
+		got := renderArchiveName(t, nameTmpl, tc.os, tc.arch)
+		if got != tc.want {
+			t.Errorf("archive name for %s/%s = %q, want %q", tc.os, tc.arch, got, tc.want)
+		}
+		// Belt and braces, and the check that would have caught the folded
+		// block directly rather than by comparing against a hardcoded string.
+		if strings.ContainsAny(got, " \t") {
+			t.Errorf("archive name for %s/%s contains whitespace: %q; "+
+				"install.sh builds no whitespace into the name, so the download "+
+				"URL will not match", tc.os, tc.arch, got)
+		}
+	}
+}
+
+// archiveNameTemplate pulls the archives[].name_template out of the release
+// spec, accepting either a plain or a folded scalar.
+func archiveNameTemplate(t *testing.T, spec string) (string, bool) {
+	t.Helper()
+
+	// Find the archives block, then its name_template, so the checksum template
+	// elsewhere in the file cannot be mistaken for the archive one.
+	arch := strings.Index(spec, "\narchives:")
+	if arch < 0 {
+		t.Fatal(".goreleaser.yaml has no archives section")
+	}
+	block := spec[arch:]
+	// The archives section ends at the next top-level key.
+	if end := strings.Index(block, "\nchecksum:"); end > 0 {
+		block = block[:end]
+	}
+
+	const key = "name_template:"
+	i := strings.Index(block, key)
+	if i < 0 {
+		t.Error(".goreleaser.yaml archives section has no name_template")
+		return "", false
+	}
+	rest := block[i+len(key):]
+	rest = strings.TrimLeft(rest, " ")
+
+	// A folded or literal block scalar: consume the indentation-indented lines.
+	if strings.HasPrefix(rest, ">") || strings.HasPrefix(rest, "|") {
+		lines := strings.Split(rest, "\n")
+		head := lines[0]
+		// The block body is indented further than the `name_template:` key.
+		// Anything at or left of that is a sibling key or a comment, and must
+		// not be swallowed into the template value.
+		keyIndent := 0
+		if idx := strings.Index(block, "name_template:"); idx >= 0 {
+			lineStart := strings.LastIndex(block[:idx], "\n")
+			keyIndent = idx - (lineStart + 1)
+		}
+
+		var parts []string
+		for _, l := range lines[1:] {
+			trimmed := strings.TrimLeft(l, " ")
+			if trimmed == "" {
+				continue
+			}
+			lead := len(l) - len(trimmed)
+			// A comment at any indentation is not part of a block scalar.
+			if strings.HasPrefix(trimmed, "#") {
+				break
+			}
+			if lead <= keyIndent {
+				break
+			}
+			parts = append(parts, trimmed)
+		}
+		// Folded blocks join their lines with a space, which is exactly the
+		// behaviour that broke this once.
+		if strings.HasPrefix(head, ">") {
+			return strings.Join(parts, " "), true
+		}
+		return strings.Join(parts, "\n"), true
+	}
+
+	// A plain scalar, possibly quoted. YAML quotes are not part of the value,
+	// and leaving them on would make every rendered name carry a literal
+	// apostrophe.
+	v := strings.TrimSpace(strings.SplitN(rest, "\n", 2)[0])
+	if len(v) >= 2 {
+		if (v[0] == '\'' && v[len(v)-1] == '\'') || (v[0] == '"' && v[len(v)-1] == '"') {
+			v = v[1 : len(v)-1]
+		}
+	}
+	return v, true
+}
+
+// renderArchiveName evaluates the archive name template through text/template,
+// which is in the standard library, so this costs no dependency and handles the
+// if/else/end block and any trim markers exactly the way goreleaser will.
+//
+// Replacing the actions by string substitution, which this did first, silently
+// mishandles a template written without trim markers and looks like it works.
+func renderArchiveName(t *testing.T, tmpl, goos, goarch string) string {
+	t.Helper()
+
+	// `title` capitalises the first letter, as goreleaser's does. Written out
+	// rather than pulled from golang.org/x/text/cases, which would add a
+	// dependency for one call in a test.
+	funcs := template.FuncMap{
+		"title": func(s string) string {
+			if s == "" {
+				return s
+			}
+			return strings.ToUpper(s[:1]) + s[1:]
+		},
+	}
+
+	tpl, err := template.New("name").Funcs(funcs).Parse(tmpl)
+	if err != nil {
+		t.Fatalf(".goreleaser.yaml archive name_template does not parse: %v", err)
+	}
+
+	data := struct {
+		ProjectName string
+		Version     string
+		Os          string
+		Arch        string
+	}{"lensyxe", "1.0.0-rc1", goos, goarch}
+
+	var buf bytes.Buffer
+	if err := tpl.Execute(&buf, data); err != nil {
+		t.Fatalf("archive name_template does not execute: %v", err)
+	}
+	return buf.String()
 }
 
 // The repo name appears in several places. A mismatch between them produces a
