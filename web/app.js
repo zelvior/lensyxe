@@ -48,14 +48,13 @@
   }
 
   function wireCopyButtons() {
-    var buttons = document.querySelectorAll('[data-copy-target]');
+    var buttons = document.querySelectorAll('[data-copy]');
 
     Array.prototype.forEach.call(buttons, function (btn) {
-      var source = document.getElementById(btn.getAttribute('data-copy-target'));
+      var source = document.getElementById(btn.getAttribute('data-copy'));
       if (!source) return;
 
-      var label = btn.querySelector('.copy-label');
-      var original = label ? label.textContent : '';
+      var original = btn.textContent;
       var resetTimer = null;
 
       btn.addEventListener('click', function () {
@@ -66,21 +65,19 @@
 
         copyText(text).then(
           function () {
-            if (!label) return;
-            label.textContent = 'Copied';
-            btn.setAttribute('data-copied', 'true');
+            btn.textContent = 'Copied';
+            btn.setAttribute('data-ok', 'true');
             resetTimer = setTimeout(function () {
-              label.textContent = original;
-              btn.removeAttribute('data-copied');
+              btn.textContent = original;
+              btn.removeAttribute('data-ok');
             }, 1600);
           },
           function () {
             // Deliberately not a silent failure. If the clipboard is
             // unavailable, say so instead of pretending it worked.
-            if (!label) return;
-            label.textContent = 'Press Ctrl+C';
+            btn.textContent = 'Select manually';
             resetTimer = setTimeout(function () {
-              label.textContent = original;
+              btn.textContent = original;
             }, 2400);
           }
         );
@@ -95,8 +92,8 @@
      being tracked separately.
   */
   function wireNav() {
-    var toggle = document.querySelector('.nav-toggle');
-    var menu = document.getElementById('nav-menu');
+    var toggle = document.querySelector('.menu-btn');
+    var menu = document.getElementById('menu');
     if (!toggle || !menu) return;
 
     function setOpen(open) {
@@ -120,7 +117,9 @@
 
     // Crossing the breakpoint turns the menu back into a horizontal bar; leaving
     // data-open set would hide it once the CSS stops applying that rule.
-    var wide = window.matchMedia('(min-width: 52.0625rem)');
+    // Must match the max-width: 50rem breakpoint in styles.css. If the two drift,
+// the menu stays stuck open or fails to collapse.
+    var wide = window.matchMedia('(min-width: 50.0625rem)');
     var onChange = function (e) {
       if (e.matches) setOpen(false);
     };

@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Lensyxe — deterministic engineering health for your repository</title>
-<meta name="description" content="Lensyxe scores code health, dependency health, and maintainability from your own repository. No telemetry, no network calls, one static binary. It also tells you exactly what it does not measure." />
+<title>Lensyxe — repository health, scored deterministically</title>
+<meta name="description" content="Lensyxe scores code health, dependency health, and maintainability from a repository's own contents. A single static Go binary, no telemetry, no network calls. It also documents what it does not measure." />
 <meta name="color-scheme" content="light dark" />
 
 <meta property="og:type" content="website" />
-<meta property="og:title" content="Lensyxe — deterministic engineering health" />
-<meta property="og:description" content="A single static binary that scores your repository and ships nothing off your machine." />
+<meta property="og:title" content="Lensyxe — repository health, scored deterministically" />
+<meta property="og:description" content="A single static Go binary that scores a repository and sends nothing off your machine." />
 <meta property="og:image" content="/social-preview.png" />
 <meta name="twitter:card" content="summary_large_image" />
 
@@ -18,371 +18,337 @@
 </head>
 <body>
 
-<a class="skip-link" href="#main">Skip to content</a>
+<a class="skip" href="#main">Skip to content</a>
 
-<header class="site-header">
-  <nav class="nav container" aria-label="Primary">
-    <a class="brand" href="/">
-      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M3 12h3l2.5-7 3 14 2.5-7H21" />
-      </svg>
+<header class="bar">
+  <div class="wrap bar-in">
+    <a class="logo" href="/">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12h3l2.5-7 3 14 2.5-7H21"/></svg>
       <span>Lensyxe</span>
     </a>
-
-    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-menu">
-      <span class="sr-only">Toggle navigation</span>
-      <span class="nav-toggle-bar" aria-hidden="true"></span>
+    <button class="menu-btn" type="button" aria-expanded="false" aria-controls="menu">
+      <span class="sr">Menu</span>
+      <span class="bars" aria-hidden="true"></span>
     </button>
-
-    <ul class="nav-menu" id="nav-menu">
-      <li><a href="#measures">What it measures</a></li>
-      <li><a href="#limits">What it doesn't</a></li>
+    <ul class="menu" id="menu">
+      <li><a href="#scores">Scoring</a></li>
+      <li><a href="#not-scored">Limits</a></li>
       <li><a href="#install">Install</a></li>
       <li><a href="#commands">Commands</a></li>
       <li><a href="#editor">VS Code</a></li>
       <li><a href="https://github.com/zelvior/lensyxe" rel="noopener">GitHub</a></li>
     </ul>
-  </nav>
+  </div>
 </header>
 
 <main id="main">
 
-  <!-- ------------------------------------------------------------- hero -->
-  <section class="hero">
-    <div class="container hero-inner">
-      <p class="eyebrow">Deterministic · Local-first · MIT</p>
-      <h1>Engineering health you can<br /><span class="grad">actually verify</span>.</h1>
+<!-- ------------------------------------------------------------------ hero -->
+<section class="hero">
+  <div class="wrap">
+    <h1>Repository health, scored deterministically.</h1>
 
-      <p class="lede">
-        Lensyxe reads your repository and scores three things: code health,
-        dependency health, and maintainability. Same commit, same score, every
-        time. No telemetry, no network calls, no model in the loop.
-      </p>
+    <p class="sub">
+      Three measurements taken from the repository itself — code health,
+      dependency health, and maintainability from Git history. The same commit
+      produces the same score every time. One static Go binary. Nothing leaves
+      the machine.
+    </p>
 
-      <div class="hero-actions">
-        <div class="install-row">
-          <code class="install-cmd" id="install-cmd">curl -sSL https://raw.githubusercontent.com/zelvior/lensyxe/main/install.sh | bash</code>
-          <button class="copy-btn" type="button" data-copy-target="install-cmd" aria-label="Copy install command">
-            <span class="copy-label">Copy</span>
-          </button>
-        </div>
-        <a class="btn btn-primary" href="#install">Full setup</a>
-        <a class="btn btn-ghost" href="https://github.com/zelvior/lensyxe" rel="noopener">Source</a>
-      </div>
+    <div class="term">
+      <div class="term-head"><span class="pip" aria-hidden="true"></span>lensyxe analyze .</div>
+      <!-- Verbatim output from this repository. Not illustrative. -->
+      <pre class="term-body"><code>path    /home/you/project
+scanned 2026-10-06 07:23:17Z in 1292 ms
+--------------------------------------------------------------
 
-      <ul class="hero-facts">
-        <li><strong>1</strong> static binary, no daemon</li>
-        <li><strong>6</strong> platforms, pure Go</li>
-        <li><strong>0</strong> outbound requests</li>
-        <li><strong>Go 1.22+</strong> to build from source</li>
-      </ul>
+ENGINEERING HEALTH
+   66.5 / 100   D
+  Overall needs work (66.5/100). Weakest dimension: Code health at 46.5.
+  Code health             46.5     40%
+  Dependency health       91.0     30%
+  Maintainability (Git)   68.6     30%
+
+CODE
+  files          79 source / 55 test
+  lines          38545 physical / 29401 code / 9144 blank+comment
+  test ratio     0.41 files, 43.0% of lines
+  complexity     avg 4.4, max 42.0 (install.sh), nesting 6
+
+  hotspots (classification = size|churn|complexity|confirmed)
+  path                                 lines  churn    cx  classification
+  internal/dependencies/analyzer.go      848   1101   5.7      size,churn
+  internal/code/analyzer.go              819   1116   6.3      size,churn
+  tests/integration_test.go              680    944   3.9      size,churn
+
+RISKS (5)
+  CRIT  Code health below expectations  (-15.0 pts)
+  HIGH  Maintainability (Git) below expectations  (-9.4 pts)
+  LOW   Bus factor of one  (-1.8 pts)</code></pre>
     </div>
 
-    <div class="container">
-      <figure class="term" role="img" aria-label="Terminal output showing a Lensyxe analysis">
-        <figcaption class="term-bar">
-          <span class="term-dot" aria-hidden="true"></span>
-          <span class="term-title">lensyxe analyze .</span>
-        </figcaption>
-        <pre class="term-body"><code id="term-output">Engineering Health Score
+    <p class="note">
+      That output is from this repository, unmodified. The full report also
+      covers languages, per-file complexity, high-churn files, dependency
+      manifests, and every risk with its evidence.
+    </p>
+  </div>
+</section>
 
-  <span class="dim">score</span>    <span class="hl">65.9 / 100</span>   <span class="warn">grade D</span>
+<!-- ---------------------------------------------------------------- scores -->
+<section class="sect" id="scores">
+  <div class="wrap">
+    <h2>How the score is built</h2>
 
-  <span class="dim">Code health</span>          45.6  <span class="dim">40%</span>
-  <span class="dim">Dependency health</span>    91.0  <span class="dim">30%</span>
-  <span class="dim">Maintainability (Git)</span> 67.7  <span class="dim">30%</span>
+    <p>
+      The score is a weighted sum of three metrics. When a dimension cannot be
+      measured its weight is redistributed rather than counted as zero, so a
+      directory that is not a Git repository is not penalised for it.
+    </p>
 
-  <span class="dim">risks</span>   7
-  <span class="dim">analyzed in</span>  1.4s
+    <table class="tbl">
+      <thead>
+        <tr><th>Dimension</th><th class="num">Weight</th><th>Reads</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Code health</td>
+          <td class="num">40%</td>
+          <td>File size distribution, test-to-code file ratio, and lexical
+              complexity — branch points, nesting depth, per-function estimates —
+              across every language present.</td>
+        </tr>
+        <tr>
+          <td>Dependency health</td>
+          <td class="num">30%</td>
+          <td>Direct, dev, and transitive counts from Go, npm, Python, and Rust
+              manifests, plus whether a lockfile exists. Drift is inferred from
+              modification times.</td>
+        </tr>
+        <tr>
+          <td>Maintainability</td>
+          <td class="num">30%</td>
+          <td>Churn and authorship over a configurable window, read from your own
+              Git history.</td>
+        </tr>
+      </tbody>
+    </table>
 
-  CRITICAL  Code health below expectations
-  HIGH      Hotspot: legacy/order.go
+    <p class="note">
+      A hotspot needs size, churn, and complexity together before it is called
+      confirmed. Every weight and threshold is a constant in
+      <code>internal/metrics/scorer.go</code>; the arithmetic is written out in
+      <a href="https://github.com/zelvior/lensyxe/blob/main/docs/SCORING_SPEC.md" rel="noopener">the scoring spec</a>.
+    </p>
+  </div>
+</section>
 
-  <span class="dim">analyzed in 1.4s · no network calls made</span></code></pre>
-      </figure>
+<!-- ------------------------------------------------------------ not scored -->
+<section class="sect sect-alt" id="not-scored">
+  <div class="wrap">
+    <h2>What it does not measure</h2>
+
+    <p>
+      Listed because the first question about a health score is usually why
+      there is no coverage number in it.
+    </p>
+
+    <table class="tbl">
+      <thead>
+        <tr><th>Not measured</th><th>Instead</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Code coverage</td>
+          <td>Tests are never instrumented. The test-to-code file ratio is a
+              weaker signal and is never called coverage.</td>
+        </tr>
+        <tr>
+          <td>Build duration</td>
+          <td>The build is never executed. Timing it would measure the machine
+              and the runner as much as the code.</td>
+        </tr>
+        <tr>
+          <td>Vulnerability counts</td>
+          <td>A count needs a vulnerability database and a network call.</td>
+        </tr>
+        <tr>
+          <td>Lockfile staleness</td>
+          <td>Inferred from modification times. It never checks whether a pinned
+              version still resolves.</td>
+        </tr>
+        <tr>
+          <td>Complexity for declarative files</td>
+          <td>Excluded rather than estimated — conditionals in YAML and SQL are
+              mapping keys, not branches.</td>
+        </tr>
+        <tr>
+          <td>Per-package Git signals</td>
+          <td>Churn is not attributable to a directory, so it is reported at the
+              repository level.</td>
+        </tr>
+        <tr>
+          <td>Transitive dependency risk</td>
+          <td>Dependencies are counted, not analysed. No version is resolved.</td>
+        </tr>
+        <tr>
+          <td>Per-language scoring</td>
+          <td>Complexity is aggregated across languages; a polyglot repository
+              is scored as a whole.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="note">
+      The reasoning behind each omission is in
+      <a href="https://github.com/zelvior/lensyxe/blob/main/docs/SCORING_SPEC.md#what-is-not-measured" rel="noopener">the scoring spec</a>.
+    </p>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------------------- install -->
+<section class="sect" id="install">
+  <div class="wrap">
+    <h2>Install</h2>
+
+    <p>One static binary. No runtime, no daemon, no configuration before the first run.</p>
+
+    <h3>Script</h3>
+    <div class="cmd-row">
+      <code class="cmd" id="i1">curl -sSL https://raw.githubusercontent.com/zelvior/lensyxe/main/install.sh | bash</code>
+      <button class="cp" type="button" data-copy="i1">Copy</button>
     </div>
-  </section>
+    <p class="note">
+      Verifies the published SHA-256 before installing. Pin with
+      <code>LENSYXE_VERSION=0.3.0</code>, or choose a prefix with
+      <code>LENSYXE_PREFIX=$HOME/.local/bin</code>.
+    </p>
 
-  <!-- ---------------------------------------------------------- measures -->
-  <section class="section" id="measures">
-    <div class="container">
-      <header class="section-head">
-        <h2>Three dimensions. Nothing hidden.</h2>
-        <p>
-          The score is a weighted sum of three measurements. Every weight and
-          every threshold is a constant in
-          <code>internal/metrics/scorer.go</code>, and the full arithmetic is in
-          <a href="https://github.com/zelvior/lensyxe/blob/main/docs/SCORING_SPEC.md" rel="noopener">the scoring spec</a>.
-        </p>
-      </header>
-
-      <div class="grid grid-3">
-        <article class="card">
-          <h3><span class="weight">40%</span> Code health</h3>
-          <p>
-            File size distribution, test-to-code file ratio, and lexical
-            complexity — branch points, nesting depth, and per-function
-            estimates — aggregated across every language present.
-          </p>
-          <p class="card-note">Hotspots combine size, churn, and complexity. A file needs all three to be called confirmed.</p>
-        </article>
-
-        <article class="card">
-          <h3><span class="weight">30%</span> Dependency health</h3>
-          <p>
-            Direct, dev, and transitive counts across Go, npm, Python, and Rust
-            manifests, plus whether a lockfile is present. Drift is inferred
-            from modification times.
-          </p>
-          <p class="card-note">Versions are counted, never resolved. Nothing is fetched to check whether a range still exists.</p>
-        </article>
-
-        <article class="card">
-          <h3><span class="weight">30%</span> Maintainability</h3>
-          <p>
-            Churn and authorship over a configurable window, read from your own
-            Git history. Hot files accumulate debt whether or not anyone noticed.
-          </p>
-          <p class="card-note">When a directory is not a repository, this is reported as unmeasured — never as zero.</p>
-        </article>
-      </div>
+    <h3>Release archive</h3>
+    <div class="cmd-row">
+      <code class="cmd" id="i2">curl -sSLO https://github.com/zelvior/lensyxe/releases/latest/download/lensyxe-linux-amd64.tar.gz</code>
+      <button class="cp" type="button" data-copy="i2">Copy</button>
     </div>
-  </section>
+    <p class="note">
+      Six targets: linux and darwin on amd64 and arm64, windows on amd64 and
+      arm64. Every release carries a <code>checksums.txt</code>.
+    </p>
 
-  <!-- ------------------------------------------------------------ limits -->
-  <section class="section section-alt" id="limits">
-    <div class="container">
-      <header class="section-head">
-        <h2>What Lensyxe does <em>not</em> measure</h2>
-        <p>
-          A tool that implies it measures something it does not is worse than one
-          that measures less. These are listed rather than omitted, because
-          "why is there no coverage number?" is the first question anyone asks.
-        </p>
-      </header>
-
-      <div class="limits">
-        <dl class="limits-list">
-          <div class="limit">
-            <dt>Code coverage</dt>
-            <dd>Tests are never instrumented. The test-to-code file ratio is a weaker, different signal and is not called coverage.</dd>
-          </div>
-          <div class="limit">
-            <dt>Build duration</dt>
-            <dd>Your build is never executed. Timing it would measure the machine and the CI runner as much as the code.</dd>
-          </div>
-          <div class="limit">
-            <dt>Vulnerability counts</dt>
-            <dd>A count needs a vulnerability database and a network call. Neither is attempted.</dd>
-          </div>
-          <div class="limit">
-            <dt>Lockfile staleness</dt>
-            <dd>Inferred from modification times. It never checks whether a pinned version still resolves.</dd>
-          </div>
-          <div class="limit">
-            <dt>Complexity for declarative files</dt>
-            <dd>YAML and SQL conditionals are mapping keys, not branches. Excluded rather than estimated.</dd>
-          </div>
-          <div class="limit">
-            <dt>Per-package Git signals</dt>
-            <dd>Churn is not attributable to a directory. Reported at the repository level.</dd>
-          </div>
-        </dl>
-      </div>
-
-      <p class="limits-foot">
-        The full list, with the reasoning behind each omission, is in
-        <a href="https://github.com/zelvior/lensyxe/blob/main/docs/SCORING_SPEC.md#what-is-not-measured" rel="noopener">the scoring spec</a>.
-      </p>
+    <h3>From source</h3>
+    <div class="cmd-row">
+      <code class="cmd" id="i3">go install github.com/zelvior/lensyxe/cmd/lensyxe@latest</code>
+      <button class="cp" type="button" data-copy="i3">Copy</button>
     </div>
-  </section>
+    <p class="note">Requires Go 1.22 or newer. Pure Go, CGO disabled.</p>
 
-  <!-- ----------------------------------------------------------- install -->
-  <section class="section" id="install">
-    <div class="container">
-      <header class="section-head">
-        <h2>Install</h2>
-        <p>One static binary. No runtime, no daemon, no configuration to write before the first run.</p>
-      </header>
-
-      <div class="install-grid">
-        <article class="panel">
-          <h3>Script <span class="badge">recommended</span></h3>
-          <p>Downloads the archive for your platform, verifies the published SHA-256, and installs to a directory already on your PATH.</p>
-          <pre class="code"><code>curl -sSL https://raw.githubusercontent.com/zelvior/lensyxe/main/install.sh | bash</code></pre>
-          <p class="hint">Pin a version with <code>LENSYXE_VERSION=0.3.0</code>, or choose an install prefix with <code>LENSYXE_PREFIX=$HOME/.local/bin</code>.</p>
-        </article>
-
-        <article class="panel">
-          <h3>Download</h3>
-          <p>Every release carries archives for six targets plus a <code>checksums.txt</code>.</p>
-          <pre class="code"><code>curl -sSLO https://github.com/zelvior/lensyxe/releases/latest/download/lensyxe-linux-amd64.tar.gz
-sha256sum -c checksums.txt</code></pre>
-          <p class="hint">Targets: linux and darwin on amd64 and arm64, plus windows on amd64 and arm64.</p>
-        </article>
-
-        <article class="panel">
-          <h3>Go install</h3>
-          <p>Builds from source with your own toolchain. Requires Go 1.22 or newer.</p>
-          <pre class="code"><code>go install github.com/zelvior/lensyxe/cmd/lensyxe@latest</code></pre>
-          <p class="hint">The module is pure Go with CGO disabled, so it cross-compiles without a C toolchain.</p>
-        </article>
-      </div>
-
-      <div class="verify">
-        <h3>Check what you got</h3>
-        <p>
-          A download should still be a local tool after you run it. Confirm the
-          version metadata, then confirm there is no network activity:
-        </p>
-        <pre class="code"><code>lensyxe version
-lensyxe analyze . --format json &gt; snapshot.json</code></pre>
-        <p class="hint">
-          If a binary you obtained contacts a network endpoint, it is not
-          Lensyxe. See <a href="https://github.com/zelvior/lensyxe/blob/main/SECURITY.md" rel="noopener">SECURITY.md</a>.
-        </p>
-      </div>
+    <h3>Check what you installed</h3>
+    <div class="cmd-row">
+      <code class="cmd" id="i4">lensyxe version</code>
+      <button class="cp" type="button" data-copy="i4">Copy</button>
     </div>
-  </section>
+    <p class="note">
+      Analysis makes no outbound request at all. If a binary you obtained
+      contacts a network endpoint, it is not Lensyxe — see
+      <a href="https://github.com/zelvior/lensyxe/blob/main/SECURITY.md" rel="noopener">SECURITY.md</a>.
+    </p>
+  </div>
+</section>
 
-  <!-- ---------------------------------------------------------- commands -->
-  <section class="section section-alt" id="commands">
-    <div class="container">
-      <header class="section-head">
-        <h2>Commands</h2>
-        <p>
-          Six commands do the work, plus <code>completion</code> and
-          <code>help</code> from the CLI framework.
-        </p>
-      </header>
+<!-- --------------------------------------------------------------- commands -->
+<section class="sect sect-alt" id="commands">
+  <div class="wrap">
+    <h2>Commands</h2>
 
-      <div class="cmd-list">
-        <div class="cmd">
-          <code class="cmd-name">lensyxe analyze [path]</code>
-          <p>Score a repository. <code>--format json</code> emits the full snapshot, which is what the editor extension and CI consume.</p>
-        </div>
-        <div class="cmd">
-          <code class="cmd-name">lensyxe compare [rev]</code>
-          <p>Diff engineering health between two commits or tags, so a regression can be attributed to the change that caused it.</p>
-        </div>
-        <div class="cmd">
-          <code class="cmd-name">lensyxe watch [path]</code>
-          <p>Re-analyze on change, debounced. Runs in the foreground and never phones home.</p>
-        </div>
-        <div class="cmd">
-          <code class="cmd-name">lensyxe history</code>
-          <p>Plot the score over recorded runs from a local SQLite history database.</p>
-        </div>
-        <div class="cmd">
-          <code class="cmd-name">lensyxe serve</code>
-          <p>Serve a local dashboard and read-only JSON API. Binds loopback only.</p>
-        </div>
-        <div class="cmd">
-          <code class="cmd-name">lensyxe version</code>
-          <p>Print version, commit, build date, Go version, and platform.</p>
-        </div>
-      </div>
+    <dl class="cmds">
+      <dt><code>lensyxe analyze [path]</code></dt>
+      <dd>Score a repository. <code>--format json</code> emits the full snapshot
+          that the editor extension and CI consume.</dd>
+
+      <dt><code>lensyxe compare [rev]</code></dt>
+      <dd>Diff health between two commits or tags, so a regression can be
+          attributed to the change that caused it.</dd>
+
+      <dt><code>lensyxe watch [path]</code></dt>
+      <dd>Re-analyze on change, debounced. Runs in the foreground.</dd>
+
+      <dt><code>lensyxe history</code></dt>
+      <dd>Score over recorded runs, from a local SQLite database.</dd>
+
+      <dt><code>lensyxe serve</code></dt>
+      <dd>Serve a local dashboard and read-only JSON API. Binds loopback only.</dd>
+
+      <dt><code>lensyxe version</code></dt>
+      <dd>Version, commit, build date, Go version, platform.</dd>
+    </dl>
+
+    <p class="note">
+      <code>completion</code> and <code>help</code> come from the CLI framework.
+      Every flag is listed in
+      <a href="https://github.com/zelvior/lensyxe/blob/main/docs/CLI_REFERENCE.md" rel="noopener">the CLI reference</a>.
+    </p>
+  </div>
+</section>
+
+<!-- ----------------------------------------------------------------- editor -->
+<section class="sect" id="editor">
+  <div class="wrap">
+    <h2>VS Code extension</h2>
+
+    <p>
+      The extension is a viewer. It runs <code>lensyxe analyze --format json</code>,
+      parses the snapshot, and renders it — it holds no scoring logic, so the
+      score in the status bar cannot drift from the score in your terminal. Newer
+      analyses supersede in-flight ones, so saving several files does not queue
+      several scans.
+    </p>
+
+    <div class="cmd-row">
+      <code class="cmd" id="i5">code --install-extension lensyxe-vscode-0.1.0.vsix</code>
+      <button class="cp" type="button" data-copy="i5">Copy</button>
     </div>
-  </section>
 
-  <!-- ------------------------------------------------------------ editor -->
-  <section class="section" id="editor">
-    <div class="container">
-      <div class="split">
-        <div>
-          <header class="section-head">
-            <h2>In the editor</h2>
-            <p>
-              The VS Code extension is a viewer. It runs
-              <code>lensyxe analyze --format json</code>, parses the snapshot,
-              and renders it. It holds no scoring logic of its own, so the score
-              in the status bar cannot drift from the score in your terminal.
-            </p>
-          </header>
+    <p class="note">
+      Every release attaches the packaged VSIX, so no Node toolchain is needed.
+      To build it from source, see
+      <a href="https://github.com/zelvior/lensyxe/blob/main/docs/VSCODE_EXTENSION.md" rel="noopener">the extension guide</a>.
+    </p>
+  </div>
+</section>
 
-          <ul class="ticks">
-            <li>Health score in the status bar, click to re-run</li>
-            <li>Sidebar tree with hotspots and risks that open the file</li>
-            <li>Complexity and hotspot diagnostics in the editor</li>
-            <li>A newer analysis supersedes an in-flight one, so saves never queue</li>
-          </ul>
+<!-- ---------------------------------------------------------------- privacy -->
+<section class="sect sect-alt" id="privacy">
+  <div class="wrap">
+    <h2>Local-first</h2>
 
-          <pre class="code"><code>git clone https://github.com/zelvior/lensyxe.git
-cd lensyxe/ide/vscode &amp;&amp; npm install &amp;&amp; npm run package
-code --install-extension lensyxe-vscode-0.1.0.vsix</code></pre>
+    <p>
+      Analysis reads the filesystem and Git history and nothing else. There is no
+      analytics code path in the binary and nowhere for events to be queued, so
+      the claim is checkable rather than a promise in a policy document.
+    </p>
 
-          <p class="hint">
-            Every release attaches the packaged VSIX, so no Node toolchain is
-            required. See
-            <a href="https://github.com/zelvior/lensyxe/blob/main/docs/VSCODE_EXTENSION.md" rel="noopener">the extension guide</a>.
-          </p>
-        </div>
-
-        <figure class="shot">
-          <div class="shot-bar"><span class="term-dot" aria-hidden="true"></span>Engineering Health</div>
-          <div class="shot-body">
-            <div class="shot-row"><span class="shot-score">65.9 / 100</span><span class="shot-grade">grade D</span></div>
-            <div class="shot-row sub"><span>Code health</span><span>45.6 · 40%</span></div>
-            <div class="shot-row sub"><span>Dependency health</span><span>91.0 · 30%</span></div>
-            <div class="shot-row sub"><span>Maintainability (Git)</span><span>67.7 · 30%</span></div>
-            <div class="shot-sep"></div>
-            <div class="shot-row"><span class="sev crit">●</span> Code health below expectations</div>
-            <div class="shot-row"><span class="sev warn">●</span> Hotspot: legacy/order.go</div>
-          </div>
-          <figcaption>An unmeasured dimension reads <em>not measured</em>, never 0.</figcaption>
-        </figure>
-      </div>
-    </div>
-  </section>
-
-  <!-- ----------------------------------------------------------- privacy -->
-  <section class="section section-alt" id="privacy">
-    <div class="container">
-      <header class="section-head">
-        <h2>Local-first, and checkable</h2>
-        <p>The privacy claim is a property of the code, not a promise in a policy document.</p>
-      </header>
-
-      <div class="grid grid-3">
-        <article class="card">
-          <h3>No telemetry</h3>
-          <p>There is no analytics code path in the binary. No events are queued, because there is nowhere to queue them.</p>
-        </article>
-        <article class="card">
-          <h3>No outbound requests</h3>
-          <p>Analysis makes no network call at all. Manifests and Git history are read from disk. Only loopback is ever bound.</p>
-        </article>
-        <article class="card">
-          <h3>AI is opt-in and optional</h3>
-          <p>An explanation layer exists behind <code>--explain</code>. It requires you to supply a key, and without one the tool behaves identically minus the prose.</p>
-        </article>
-      </div>
-    </div>
-  </section>
-
-  <!-- -------------------------------------------------------------- cta -->
-  <section class="section cta">
-    <div class="container cta-inner">
-      <h2>Score the repository you are in.</h2>
-      <pre class="code code-lg"><code>lensyxe analyze .</code></pre>
-      <p class="hint">
-        <a href="https://github.com/zelvior/lensyxe">Browse the source</a> ·
-        <a href="https://github.com/zelvior/lensyxe/blob/main/CONTRIBUTING.md" rel="noopener">Contributing</a> ·
-        <a href="https://github.com/zelvior/lensyxe/blob/main/SECURITY.md" rel="noopener">Security</a>
-      </p>
-    </div>
-  </section>
+    <ul class="tight">
+      <li>No telemetry, and no code path that could emit any.</li>
+      <li>No outbound request during <code>analyze</code>, <code>compare</code>,
+          <code>history</code>, or <code>watch</code>.</li>
+      <li><code>serve</code> binds loopback only.</li>
+      <li>History lives in a local SQLite file you can delete.</li>
+      <li>An explanation layer exists behind <code>--explain</code> and needs a
+          key you supply; without one the tool behaves identically.</li>
+    </ul>
+  </div>
+</section>
 
 </main>
 
-<footer class="site-footer">
-  <div class="container footer-inner">
-    <p>Lensyxe is MIT licensed. Built and maintained in the open.</p>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <p>MIT licensed.</p>
     <nav aria-label="Footer">
-      <a href="https://github.com/zelvior/lensyxe" rel="noopener">GitHub</a>
+      <a href="https://github.com/zelvior/lensyxe" rel="noopener">Source</a>
       <a href="https://github.com/zelvior/lensyxe/blob/main/docs/SCORING_SPEC.md" rel="noopener">Scoring spec</a>
       <a href="https://github.com/zelvior/lensyxe/blob/main/docs/CLI_REFERENCE.md" rel="noopener">CLI reference</a>
       <a href="https://github.com/zelvior/lensyxe/blob/main/SECURITY.md" rel="noopener">Security</a>
+      <a href="https://github.com/zelvior/lensyxe/blob/main/CONTRIBUTING.md" rel="noopener">Contributing</a>
     </nav>
   </div>
 </footer>
