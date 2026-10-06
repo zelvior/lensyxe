@@ -286,7 +286,7 @@ func RenderComment(w io.Writer, snap *models.Snapshot, opts CommentOptions) erro
 func renderHeadline(b *strings.Builder, snap *models.Snapshot, opts CommentOptions) {
 	score := fmt.Sprintf("%.1f", snap.Health.Score)
 	if opts.Baseline == nil {
-		b.WriteString(fmt.Sprintf("**Overall Health:** `%s` (%s)\n\n", score, snap.Health.Grade))
+		fmt.Fprintf(b, "**Overall Health:** `%s` (%s)\n\n", score, snap.Health.Grade)
 		return
 	}
 
@@ -299,8 +299,8 @@ func renderHeadline(b *strings.Builder, snap *models.Snapshot, opts CommentOptio
 		arrow = "→"
 	}
 	// The arrow carries the direction, so only the magnitude follows it.
-	b.WriteString(fmt.Sprintf("**Overall Health:** `%s → %s` (%s%s)\n\n",
-		before, score, arrow, magnitude(delta)))
+	fmt.Fprintf(b, "**Overall Health:** `%s → %s` (%s%s)\n\n",
+		before, score, arrow, magnitude(delta))
 }
 
 // renderTable writes the per-category impact table.
@@ -312,15 +312,15 @@ func renderTable(b *strings.Builder, snap *models.Snapshot, opts CommentOptions)
 		before, hasBaseline := baselineValue(opts.Baseline, cat.Label)
 
 		if !cat.HasValue {
-			b.WriteString(fmt.Sprintf("| %s | %s | %s | ⚪ Not measured |\n",
-				escapeCell(cat.Label), NotMeasured, NotMeasured))
+			fmt.Fprintf(b, "| %s | %s | %s | ⚪ Not measured |\n",
+				escapeCell(cat.Label), NotMeasured, NotMeasured)
 			continue
 		}
 
 		value := fmt.Sprintf("%.1f%s", cat.Value, cat.Unit)
 		if !hasBaseline {
-			b.WriteString(fmt.Sprintf("| %s | %s | %s | ⚪ No baseline |\n",
-				escapeCell(cat.Label), value, NotMeasured))
+			fmt.Fprintf(b, "| %s | %s | %s | ⚪ No baseline |\n",
+				escapeCell(cat.Label), value, NotMeasured)
 			continue
 		}
 
@@ -328,8 +328,8 @@ func renderTable(b *strings.Builder, snap *models.Snapshot, opts CommentOptions)
 		// row would hide the fact that the metric was checked at all.
 		delta := cat.Value - before
 		st := Classify(delta, cat.HigherIsBetter)
-		b.WriteString(fmt.Sprintf("| %s | %s | %s | %s %s |\n",
-			escapeCell(cat.Label), value, signed(delta), st.Glyph, st.Label))
+		fmt.Fprintf(b, "| %s | %s | %s | %s %s |\n",
+			escapeCell(cat.Label), value, signed(delta), st.Glyph, st.Label)
 	}
 	b.WriteByte('\n')
 
@@ -340,7 +340,7 @@ func renderTable(b *strings.Builder, snap *models.Snapshot, opts CommentOptions)
 			continue
 		}
 		seen[cat.Label] = true
-		b.WriteString(fmt.Sprintf("- **%s**: %s\n", cat.Label, cat.Footnote))
+		fmt.Fprintf(b, "- **%s**: %s\n", cat.Label, cat.Footnote)
 	}
 	if len(seen) > 0 {
 		b.WriteByte('\n')
@@ -401,7 +401,7 @@ func renderRisks(b *strings.Builder, snap *models.Snapshot, opts CommentOptions)
 		limit = opts.MaxRisks
 	}
 
-	b.WriteString(fmt.Sprintf("### ⚠ Detected Risks (%d)\n\n", len(risks)))
+	fmt.Fprintf(b, "### ⚠ Detected Risks (%d)\n\n", len(risks))
 	for _, r := range risks[:limit] {
 		line := fmt.Sprintf("- %s **%s**", r.Severity.Emoji(), escapeCell(r.Title))
 		if r.Subject != "" {
@@ -412,12 +412,12 @@ func renderRisks(b *strings.Builder, snap *models.Snapshot, opts CommentOptions)
 		// the reader can check it without leaving the comment.
 		if len(r.Evidence) > 0 {
 			e := r.Evidence[0]
-			b.WriteString(fmt.Sprintf("  - %s\n", escapeCell(e.Detail)))
+			fmt.Fprintf(b, "  - %s\n", escapeCell(e.Detail))
 		}
 	}
 	if limit < len(risks) {
-		b.WriteString(fmt.Sprintf("- _%d further risk(s) omitted; see the JSON artifact._\n",
-			len(risks)-limit))
+		fmt.Fprintf(b, "- _%d further risk(s) omitted; see the JSON artifact._\n",
+			len(risks)-limit)
 	}
 	b.WriteByte('\n')
 }
@@ -485,19 +485,6 @@ func magnitude(v float64) string {
 	r := math.Round(math.Abs(v)*10) / 10
 	if r == math.Trunc(r) {
 		return strconv.FormatFloat(r, 'f', 0, 64)
-	}
-	return strconv.FormatFloat(r, 'f', 1, 64)
-}
-
-// trimZero renders a delta without a trailing ".0".
-func trimZero(v float64) string {
-	// fmt's %.1f rounds halves to even, so 0.25 prints as "0.2" while a
-	// reader expecting ordinary rounding reads "0.3". Round half away from
-	// zero explicitly so the displayed number matches the one people compute
-	// by hand.
-	r := math.Round(math.Abs(v)*10) / 10
-	if r == math.Trunc(r) {
-		return fmt.Sprintf("%.0f", r)
 	}
 	return strconv.FormatFloat(r, 'f', 1, 64)
 }

@@ -119,7 +119,7 @@ func Render(w io.Writer, points []Point, delta storage.ScoreDelta, opts Options)
 	b.WriteByte('\n')
 
 	// Axis range, so the vertical scale is not a mystery.
-	b.WriteString(fmt.Sprintf("  axis %.0f..%.0f across %d run(s)\n\n", lo, hi, len(points)))
+	fmt.Fprintf(&b, "  axis %.0f..%.0f across %d run(s)\n\n", lo, hi, len(points))
 
 	// Summary statistics.
 	first, last := points[0], points[len(points)-1]
@@ -135,23 +135,23 @@ func Render(w io.Writer, points []Point, delta storage.ScoreDelta, opts Options)
 	}
 
 	b.WriteString("SUMMARY\n")
-	b.WriteString(fmt.Sprintf("  first    %6.1f  %s  %s\n",
-		first.Record.Score, first.Record.Timestamp, first.Record.CommitShort))
-	b.WriteString(fmt.Sprintf("  latest   %6.1f  %s  %s\n",
-		last.Record.Score, last.Record.Timestamp, last.Record.CommitShort))
-	b.WriteString(fmt.Sprintf("  best     %6.1f  %s\n", best.Record.Score, best.Record.Timestamp))
-	b.WriteString(fmt.Sprintf("  worst    %6.1f  %s\n", worst.Record.Score, worst.Record.Timestamp))
-	b.WriteString(fmt.Sprintf("  change   %s over %d run(s), average %s per run\n",
-		signed(total), len(points), signed(round2(total/float64(len(points))))))
+	fmt.Fprintf(&b, "  first    %6.1f  %s  %s\n",
+		first.Record.Score, first.Record.Timestamp, first.Record.CommitShort)
+	fmt.Fprintf(&b, "  latest   %6.1f  %s  %s\n",
+		last.Record.Score, last.Record.Timestamp, last.Record.CommitShort)
+	fmt.Fprintf(&b, "  best     %6.1f  %s\n", best.Record.Score, best.Record.Timestamp)
+	fmt.Fprintf(&b, "  worst    %6.1f  %s\n", worst.Record.Score, worst.Record.Timestamp)
+	fmt.Fprintf(&b, "  change   %s over %d run(s), average %s per run\n",
+		signed(total), len(points), signed(round2(total/float64(len(points)))))
 
 	// Latest delta against the stored baseline.
 	b.WriteByte('\n')
 	if delta.HasPrevious {
-		b.WriteString(fmt.Sprintf("  last delta  %s (%s -> %s, %s)\n",
+		fmt.Fprintf(&b, "  last delta  %s (%s -> %s, %s)\n",
 			signed(delta.Delta),
 			fmt.Sprintf("%.1f", delta.Previous.Score),
 			fmt.Sprintf("%.1f", delta.Latest.Score),
-			delta.Trend))
+			delta.Trend)
 	} else {
 		b.WriteString("  last delta  n/a (only one run recorded)\n")
 	}
@@ -159,19 +159,19 @@ func Render(w io.Writer, points []Point, delta storage.ScoreDelta, opts Options)
 
 	// Per-run table.
 	b.WriteString("RUNS (newest first)\n")
-	b.WriteString(fmt.Sprintf("  %-6s %-20s %-10s %-14s %6s %6s %6s %5s\n",
-		"", "WHEN", "COMMIT", "TREND", "SCORE", "RISKS", "HOTSP", "TESTS"))
+	fmt.Fprintf(&b, "  %-6s %-20s %-10s %-14s %6s %6s %6s %5s\n",
+		"", "WHEN", "COMMIT", "TREND", "SCORE", "RISKS", "HOTSP", "TESTS")
 	for i := len(points) - 1; i >= 0; i-- {
 		p := points[i]
 		trend := p.Trend.Glyph + " " + firstRun(p)
-		b.WriteString(fmt.Sprintf("  %-20s %-10s %-14s %6.1f %6s %6d %5d\n",
+		fmt.Fprintf(&b, "  %-20s %-10s %-14s %6.1f %6s %6d %5d\n",
 			p.Record.Timestamp,
 			p.Record.CommitShort,
 			trend,
 			p.Record.Score,
 			riskDeltaText(p.Record),
 			p.Record.HotspotCount,
-			p.Record.TestFiles))
+			p.Record.TestFiles)
 	}
 
 	if _, err := io.WriteString(w, b.String()); err != nil {
@@ -284,7 +284,7 @@ func RenderGraph(points []Point, showGrid bool) (lines []string, lo, hi float64)
 		labelValue := hiStep - (hiStep-loStep)*float64(r)/float64(graphHeight-1)
 		var b strings.Builder
 		if r%2 == 0 || r == graphHeight-1 {
-			b.WriteString(fmt.Sprintf("%5.0f ┤", labelValue))
+			fmt.Fprintf(&b, "%5.0f ┤", labelValue)
 		} else {
 			b.WriteString("      │")
 		}

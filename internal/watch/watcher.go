@@ -422,18 +422,18 @@ func StatusLine(changed []string, prev, cur *models.Snapshot) string {
 	} else if len(changed) == 1 {
 		b.WriteString("Detected change in " + changed[0] + " -> Re-analyzing...")
 	} else {
-		b.WriteString(fmt.Sprintf("Detected %d file changes (%s) -> Re-analyzing...",
-			len(changed), summarizePaths(changed)))
+		fmt.Fprintf(&b, "Detected %d file changes (%s) -> Re-analyzing...",
+			len(changed), summarizePaths(changed))
 	}
 
 	if prev == nil || cur == nil {
-		b.WriteString(fmt.Sprintf(" Health: %s", scoreOf(cur)))
+		fmt.Fprintf(&b, " Health: %s", scoreOf(cur))
 		return b.String()
 	}
 
 	delta := cur.Health.Score - prev.Health.Score
-	b.WriteString(fmt.Sprintf(" Health: %.1f -> %.1f (%s)",
-		prev.Health.Score, cur.Health.Score, signedScore(delta)))
+	fmt.Fprintf(&b, " Health: %.1f -> %.1f (%s)",
+		prev.Health.Score, cur.Health.Score, signedScore(delta))
 
 	if note := movement(prev, cur); note != "" {
 		b.WriteString(" (" + note + ")")

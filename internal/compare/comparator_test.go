@@ -606,7 +606,7 @@ func branchyBody(n int) string {
 	var b strings.Builder
 	b.WriteString("func branchy() {\n")
 	for i := 0; i < n; i++ {
-		b.WriteString(fmt.Sprintf("\tif c%d && d%d {\n\t\tswitch v {\n\t\tcase 1:\n\t\tdefault:\n\t\t}\n\t}\n", i, i))
+		fmt.Fprintf(&b, "\tif c%d && d%d {\n\t\tswitch v {\n\t\tcase 1:\n\t\tdefault:\n\t\t}\n\t}\n", i, i)
 	}
 	b.WriteString("}\n")
 	return b.String()

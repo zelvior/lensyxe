@@ -386,7 +386,12 @@ func summarize(score float64, metrics []models.Metric) string {
 			weakest = &metrics[i]
 		}
 	}
-	label := "strong"
+	// label is declared rather than initialised because the switch below is
+	// exhaustive: its default branch covers everything below 40, so no
+	// initial value is ever read. Giving it one suggested a reachable fallback
+	// band that does not exist, and a reader could reasonably expect a score
+	// between 55 and 70 to fall through to it.
+	var label string
 	switch {
 	case score >= 85:
 		label = "healthy"

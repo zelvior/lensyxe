@@ -157,7 +157,7 @@ func AnalyzeWorkflows(root string) (Report, error) {
 		name := e.Name()
 		// Only workflow definitions matter; a README or a directory in that
 		// folder is not a build.
-		if e.IsDir() || !(strings.HasSuffix(name, ".yml") || strings.HasSuffix(name, ".yaml")) {
+		if e.IsDir() || (!strings.HasSuffix(name, ".yml") && !strings.HasSuffix(name, ".yaml")) {
 			continue
 		}
 		names = append(names, name)

@@ -298,8 +298,8 @@ func Explain(ctx context.Context, cfg Config, snap *models.Snapshot, baseline *m
 		return nil, fmt.Errorf("ai: build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	switch {
-	case cfg.Provider == ProviderGemini:
+	switch cfg.Provider {
+	case ProviderGemini:
 		req.Header.Set("x-goog-api-key", cfg.APIKey)
 	default:
 		req.Header.Set("Authorization", authPrefix+cfg.APIKey)

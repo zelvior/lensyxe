@@ -493,7 +493,9 @@ func TestLoopbackOriginIsAllowed(t *testing.T) {
 // return the dashboard with a 200.
 func TestWrongMethodIsRejected(t *testing.T) {
 	assets := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("dashboard"))
+		if _, err := w.Write([]byte("dashboard")); err != nil {
+			t.Errorf("asset handler write: %v", err)
+		}
 	})
 	s, err := New(Config{
 		Snapshot: func(context.Context) (*models.Snapshot, error) { return fixtureSnapshot(), nil },
@@ -514,7 +516,9 @@ func TestWrongMethodIsRejected(t *testing.T) {
 // answered with index.html.
 func TestAPIPathsNeverReturnTheDashboard(t *testing.T) {
 	assets := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("<!doctype html>"))
+		if _, err := w.Write([]byte("<!doctype html>")); err != nil {
+			t.Errorf("asset handler write: %v", err)
+		}
 	})
 	s, err := New(Config{
 		Snapshot: func(context.Context) (*models.Snapshot, error) { return fixtureSnapshot(), nil },

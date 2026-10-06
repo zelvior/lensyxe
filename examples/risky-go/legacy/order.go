@@ -93,10 +93,10 @@ func Shipping(o Order) int {
 func Label(o Order) string {
 	parts := make([]string, 0, len(o.Items))
 	for _, item := range o.Items {
-		switch {
-		case item.Quantity == 0:
+		switch item.Quantity {
+		case 0:
 			continue
-		case item.Quantity == 1:
+		case 1:
 			parts = append(parts, item.SKU)
 		default:
 			parts = append(parts, item.SKU+" x"+itoa(item.Quantity))

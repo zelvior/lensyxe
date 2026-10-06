@@ -228,20 +228,6 @@ func branchyFunction(name string, branches int) string {
 	return b.String()
 }
 
-// paddedFunction returns a function with one branch plus filler lines, used to
-// reach a line count without raising complexity.
-func paddedFunction(name string, filler int) string {
-	var b strings.Builder
-	b.WriteString("func " + name + "() {\n")
-	for i := 0; i < filler; i++ {
-		b.WriteString("\tvalue")
-		b.WriteString(strings.Repeat("X", i%4))
-		b.WriteString(" = 1\n")
-	}
-	b.WriteString("}\n")
-	return b.String()
-}
-
 // A file is only a confirmed hotspot when size, churn, AND complexity all
 // cross their thresholds. Each missing factor must prevent confirmation.
 func TestHotspotClassification(t *testing.T) {

@@ -161,10 +161,9 @@ func renderExplanation(exp *ai.Explanation) string {
 	b.WriteString(sep)
 	b.WriteString(exp.Text)
 	b.WriteString("\n\n")
-	b.WriteString(fmt.Sprintf(
-		"-- AI-generated summary from %s (%s). The Engineering Health Score and "+
-			"every figure above it are computed locally and are unaffected by this "+
-			"text. Read the numbers, not the prose.\n",
-		exp.Provider, exp.Model))
+	fmt.Fprintf(&b, "-- AI-generated summary from %s (%s). The Engineering Health Score and "+
+		"every figure above it are computed locally and are unaffected by this "+
+		"text. Read the numbers, not the prose.\n",
+		exp.Provider, exp.Model)
 	return b.String()
 }

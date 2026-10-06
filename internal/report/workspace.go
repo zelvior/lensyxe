@@ -34,7 +34,7 @@ func writeWorkspace(b *strings.Builder, ws *models.Workspace) {
 	for _, pkg := range ws.Packages {
 		b.WriteString("  ")
 		b.WriteString(styleLabel.Render(fmt.Sprintf("%-24s", truncatePath(pkg.Path, 24))))
-		b.WriteString(fmt.Sprintf("%5s", scoreText(pkg.Health.Score)))
+		fmt.Fprintf(b, "%5s", scoreText(pkg.Health.Score))
 		b.WriteString("  ")
 		b.WriteString(scoreStyle(pkg.Health.Score).Render(pkg.Health.Grade))
 		if note := packageNote(pkg); note != "" {
@@ -90,10 +90,13 @@ func markdownWorkspace(b *strings.Builder, ws *models.Workspace) {
 		return
 	}
 
-	b.WriteString(fmt.Sprintf("\n## Workspace Health Breakdown\n\n"))
-	b.WriteString(fmt.Sprintf(
+	// A Sprintf with no arguments is what makes the two checks below conflict: one
+	// wants Fprintf, the other wants the Sprintf dropped entirely. Dropping it is
+	// the better resolution, since a formatted constant string is pointless.
+	b.WriteString("\n## Workspace Health Breakdown\n\n")
+	fmt.Fprintf(b,
 		"Detected `%s` workspace from `%s`, %d package%s.\n\n",
-		ws.Kind, ws.Manifest, len(ws.Packages), plural(len(ws.Packages))))
+		ws.Kind, ws.Manifest, len(ws.Packages), plural(len(ws.Packages)))
 
 	b.WriteString("| Package | Score | Grade | Files | Tests | Code lines | Attention |\n")
 	b.WriteString("| :--- | ---: | :---: | ---: | ---: | ---: | :--- |\n")
@@ -107,15 +110,14 @@ func markdownWorkspace(b *strings.Builder, ws *models.Workspace) {
 		if pkg.TestFiles > 0 {
 			tests = fmt.Sprintf("%d (%.0f%%)", pkg.TestFiles, pkg.TestFileRatio*100)
 		}
-		b.WriteString(fmt.Sprintf("| %s | %s | %s | %d | %s | %d | %s |\n",
+		fmt.Fprintf(b, "| %s | %s | %s | %d | %s | %d | %s |\n",
 			escapePipes(pkg.Path),
 			scoreText(pkg.Health.Score),
 			escapePipes(grade),
 			pkg.Files,
 			tests,
 			pkg.CodeLines,
-			escapePipes(packageNote(pkg)),
-		))
+			escapePipes(packageNote(pkg)))
 	}
 
 	b.WriteString("\n> Package scores are computed from each package's own files and " +
@@ -143,7 +145,7 @@ func attributedRisksRows(ws *models.Workspace) string {
 			b.WriteString("| Package | Attributed risks |\n| :--- | :--- |\n")
 			wrote = true
 		}
-		b.WriteString(fmt.Sprintf("| %s | %d |\n", escapePipes(pkg.Path), len(pkg.Attribution)))
+		fmt.Fprintf(&b, "| %s | %d |\n", escapePipes(pkg.Path), len(pkg.Attribution))
 	}
 	return b.String()
 }

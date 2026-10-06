@@ -5,8 +5,12 @@
 // The example exists so the integration suite has a file that crosses every
 // hotspot threshold at once. Its bulk is mechanical, and mechanical bulk is
 // exactly the kind of thing that should be generated rather than committed: a
-// 600-line hand-written file would be unreviewable, and editing it by hand
-// every time a threshold moved would be worse.
+// 900-line hand-written file would be unreviewable, and editing it by hand every
+// time a threshold moved would be worse.
+//
+// The templates below are the source of truth for the generated file. Anything a
+// linter would flag has to be fixed here as well as in the output, or the next
+// regeneration reintroduces it and CI goes red on a file nobody touched.
 //
 // Run it from the repository root:
 //
@@ -120,10 +124,10 @@ func Shipping(o Order) int {
 func Label(o Order) string {
 	parts := make([]string, 0, len(o.Items))
 	for _, item := range o.Items {
-		switch {
-		case item.Quantity == 0:
+		switch item.Quantity {
+		case 0:
 			continue
-		case item.Quantity == 1:
+		case 1:
 			parts = append(parts, item.SKU)
 		default:
 			parts = append(parts, item.SKU+" x"+itoa(item.Quantity))

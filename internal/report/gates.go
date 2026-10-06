@@ -17,9 +17,9 @@ func RenderGateFailures(w io.Writer, breaches []gates.Breach) error {
 		return nil
 	}
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("THRESHOLD FAILURES (%d)\n", len(breaches)))
+	fmt.Fprintf(&b, "THRESHOLD FAILURES (%d)\n", len(breaches))
 	for _, br := range breaches {
-		b.WriteString(fmt.Sprintf("  ✗ %-24s %s\n", br.Rule, br.Message))
+		fmt.Fprintf(&b, "  ✗ %-24s %s\n", br.Rule, br.Message)
 	}
 	b.WriteString("\n  configure these under `thresholds:` in .lensyxe.yml, " +
 		"or relax them if the change is intended\n")

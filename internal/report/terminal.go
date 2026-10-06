@@ -112,8 +112,8 @@ func writeHealthCard(b *strings.Builder, h models.Health) {
 			b.WriteByte('\n')
 			continue
 		}
-		b.WriteString(fmt.Sprintf("  %-*s  %*s  %*s\n",
-			widths[0], r[0], widths[1], r[1], widths[2], r[2]))
+		fmt.Fprintf(b, "  %-*s  %*s  %*s\n",
+			widths[0], r[0], widths[1], r[1], widths[2], r[2])
 	}
 	b.WriteByte('\n')
 }
@@ -353,7 +353,7 @@ func sectionTitle(name string) string {
 
 // row renders an aligned key/value pair.
 func row(b *strings.Builder, key, value string) {
-	b.WriteString(fmt.Sprintf("  %-14s %s\n", styleDim.Render(key), value))
+	fmt.Fprintf(b, "  %-14s %s\n", styleDim.Render(key), value)
 }
 
 // writeTable renders a table using an accessor that builds row i on demand,

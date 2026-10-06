@@ -56,10 +56,6 @@ const (
 	// Dependency drift: share of declared dependencies that are unverified.
 	unlockedImpact = 5.0
 
-	// Large direct dependency surface, as a fraction of the full-penalty
-	// point, contributing to impact.
-	dependencyPenaltyRate = 50.0
-
 	// Churn: a single file absorbing this share of window churn is a risk.
 	churnConcentrationFlag = 0.60
 
