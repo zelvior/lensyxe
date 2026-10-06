@@ -45,17 +45,30 @@ jobs:
       # matrix that tolerates failure is decoration.
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        go: ['1.22']
+        # The macOS leg runs a newer toolchain, and this is not a preference.
+        #
+        # macOS 26's dyld refuses to load a Mach-O executable with no LC_UUID
+        # load command, and Go only began emitting one by default in 1.24. A Go
+        # 1.22 test binary built on that runner dies before main with an abort
+        # trap, which is why an entire platform used to fail in milliseconds with
+        # no test output at all. See golang/go#68678.
+        #
+        # The obvious workaround, -linkmode=external, fixes the test binaries but
+        # not the integration suite: tests/integration_test.go compiles the CLI in
+        # a child `go build` with GOFLAGS deliberately cleared so the build stays
+        # hermetic, so that binary is still linked internally and still aborts. A
+        # half-workaround is worse than none, because it looks fixed.
+        #
+        # So the floor is verified where it can actually execute. 1.22 is still
+        # built and tested on Linux and Windows, which is what the README's
+        # "Go 1.22+" claim rests on; only the macOS leg moves up.
         include:
-          # macOS only, and empty elsewhere so the flag can be interpolated
-          # unconditionally instead of needing a ternary expression.
-          - os: macos-latest
-            ldflags: '-linkmode=external'
           - os: ubuntu-latest
-            ldflags: ''
+            go: '1.22'
           - os: windows-latest
-            ldflags: ''
+            go: '1.22'
+          - os: macos-latest
+            go: '1.24'
 
     steps:
       - name: Checkout
@@ -111,21 +124,8 @@ jobs:
       # one genuinely platform-sensitive thing here; they carry generous
       # ceilings for that reason, and are relaxed by flag when a machine is
       # unusually slow.
-      #
-      # The -ldflags is set for macOS only, by the matrix above. macOS 26's dyld
-      # refuses to load a Mach-O executable that has no LC_UUID load command, and
-      # Go only started emitting one by default in 1.24. Every test binary this
-      # matrix builds under the pinned Go 1.22 therefore dies before main with
-      # "dyld: missing LC_UUID load command" and an abort trap, which is why an
-      # entire platform fails in milliseconds with no test output at all.
-      #
-      # Linking externally through Apple's linker emits the command and is the
-      # workaround the Go project documents for older toolchains
-      # (golang/go#68678). Linux and Windows are untouched: they have no such
-      # requirement, and forcing an external C toolchain there would be a new
-      # dependency on macOS's linker for no reason.
       - name: Test
-        run: go test -count=1 -ldflags="${{ matrix.ldflags }}" ./...
+        run: go test -count=1 ./...
 
       # The same pure-Go constraint the release matrix depends on. If this
       # fails, cross-compiling to darwin/arm64 without a C toolchain is no
