@@ -1,0 +1,40 @@
+# Guidance shown on the repository's issue list.
+#
+# It exists because a repository with issue templates but no guidance gets
+# reports that do not fit any template: a bug report with no version, a feature
+# request that is really a support question, a security report filed publicly.
+# Routing those at the start is cheaper than routing them after triage.
+
+blank_issues_enabled: false
+
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/zelvior/lensyxe/blob/main/SECURITY.md
+    about: >
+      Report privately through GitHub's Security tab. Please do not open a
+      public issue for a vulnerability, and please do not open one for a
+      suspected one either: a public issue about a suspected vulnerability is a
+      disclosure.
+      Response targets: acknowledged within 72 hours, assessed within 7 days,
+      fixed within 30 days of confirmation.
+
+  - name: Question or usage help
+    url: https://github.com/zelvior/lensyxe/discussions
+    about: >
+      How do I use it, and does it do X? Questions about using the tool belong
+      here rather than in issues, because the answer is usually documentation and
+      the next person needs to find it.
+
+  - name: The scoring model, and what it refuses to measure
+    url: https://github.com/zelvior/lensyxe/blob/main/docs/SCORING_SPEC.md
+    about: >
+      Before reporting "the score is wrong": the full formulas are here, along
+      with the list of things Lensyxe deliberately does not measure and why.
+      A large share of bug reports are disagreements with a threshold, which is
+      a design conversation rather than a defect.
+
+  - name: Contributing guide
+    url: https://github.com/zelvior/lensyxe/blob/main/CONTRIBUTING.md
+    about: >
+      Architecture, the invariants the design depends on, and the testing rules
+      any change has to respect.

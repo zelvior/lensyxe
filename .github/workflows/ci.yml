@@ -1,0 +1,334 @@
+# Continuous integration.
+#
+# This exists so the README's build badge reports a real result. Before this
+# workflow existed, the only workflow was release.yml, which is triggered by
+# `v*` tags. A badge pointing at it would have read "no status" on every push
+# and every pull request, because that workflow genuinely does not run there. A
+# badge that never resolves is worse than no badge: it looks like coverage and
+# provides none.
+#
+# What runs here is deliberately the same gate the release enforces, minus the
+# cross-compilation. If this passes and the release still fails, the difference
+# is the platform matrix, not a change in the source.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Answer the question "would this pass on the newest Go?" without forcing
+  # every contributor to run both. An explicit `full` gate runs the full
+  # matrix, and a failure there is authoritative.
+  workflow_dispatch:
+
+permissions:
+  # Read-only by default. Nothing in this workflow writes to the repository,
+  # uploads anything, or needs a token with more than this, so the blast radius
+  # of a compromised action is limited to reading a public repository.
+  contents: read
+
+concurrency:
+  # A newer push to the same branch makes an in-flight run irrelevant. Not
+  # cancelling for pull_request would waste minutes re-testing commits that
+  # nothing will build.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }}, go ${{ matrix.go }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Every platform is required, not allowed to fail: a release matrix that
+      # ships darwin/arm64 and linux/arm64 needs all three to be tested, and a
+      # matrix that tolerates failure is decoration.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        go: ['1.22']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache-dependency-path: go.sum
+
+      - name: Check formatting
+        run: |
+          set -euo pipefail
+          unformatted="$(gofmt -l . | grep -v '^dashboard/' || true)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      # go mod tidy -diff reports what it would change and exits non-zero
+      # without rewriting, so a dependency drift fails the build instead of
+      # being silently absorbed into a commit.
+      - name: Check module files are tidy
+        run: go mod tidy -diff
+
+      - name: Vet
+        run: go vet ./...
+
+      # The full suite, not -short. The short mode skips the performance
+      # budgets and the serve test, which are exactly the parts that break when
+      # something refactors an unexpected layer. Wall-clock budget tests are the
+      # one genuinely platform-sensitive thing here; they carry generous
+      # ceilings for that reason, and are relaxed by flag when a machine is
+      # unusually slow.
+      - name: Test
+        run: go test -count=1 ./...
+
+      # The same pure-Go constraint the release matrix depends on. If this
+      # fails, cross-compiling to darwin/arm64 without a C toolchain is no
+      # longer true and the README's claim is wrong.
+      - name: Verify CGO-free build
+        env:
+          CGO_ENABLED: '0'
+        run: go build ./...
+
+  race:
+    name: Race detector
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: go.sum
+
+      # Separate from the matrix job because the race detector needs cgo and a
+      # C toolchain. ubuntu-latest has both; folding this into the matrix would
+      # mean either a C toolchain requirement on Windows or a silently skipped
+      # step, and a skipped step is the only test that can find a data race.
+      - name: Test with -race
+        run: go test -race -count=1 ./...
+        env:
+          CGO_ENABLED: '1'
+
+  cross:
+    name: Cross-compile (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # This is the release matrix. Building every target here means a broken
+        # cross-compile is caught on the pull request rather than at tag time,
+        # when the only remedy is a deleted release.
+        target:
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }
+          - { goos: windows, goarch: amd64 }
+          - { goos: windows, goarch: arm64 }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: go.sum
+
+      - name: Build ${{ matrix.target.goos }}/${{ matrix.target.goarch }}
+        env:
+          CGO_ENABLED: '0'
+          GOOS: ${{ matrix.target.goos }}
+          GOARCH: ${{ matrix.target.goarch }}
+        run: |
+          set -euo pipefail
+          out="lensyxe-${{ matrix.target.goos }}-${{ matrix.target.goarch }}"
+          if [ "${{ matrix.target.goos }}" = "windows" ]; then
+            out="${out}.exe"
+          fi
+          go build -trimpath -ldflags "-s -w" -o "$out" ./cmd/lensyxe
+          # A cross-compiled binary cannot be executed on the runner, so the
+          # check is that it exists and is non-trivial. An empty file here would
+          # mean the linker silently did nothing.
+          size="$(wc -c < "$out")"
+          if [ "$size" -lt 1000000 ]; then
+            echo "::error::$out is only $size bytes, which is not a real binary"
+            exit 1
+          fi
+
+  release-config:
+    name: Release config
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      # A malformed release spec fails at tag time, which is the worst moment to
+      # find out. goreleaser check validates the whole config including the
+      # before-hook's requirements.
+      - name: Check goreleaser configuration
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: check
+
+      # Releases are not built on tags from an untidy tree: a tag then claims
+      # something untrue. This runs the same preflight the release does.
+      - name: Release preflight
+        run: bash scripts/prepare-release.sh
+
+  # ---------------------------------------------------------------- coverage
+  #
+  # Reported rather than enforced. A coverage floor set at today's number is a
+  # ratchet nobody updates, so it stops saying anything within a release. The
+  # artifact is here so a drop is visible and investigable, not so a job can go
+  # red over it.
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: go.sum
+
+      # `-coverpkg` lists the shipped packages rather than instrumenting
+      # everything, and this is deliberate.
+      #
+      # `go test -cover ./...` looks simpler and reports a worse number. The
+      # examples/ tree is test fixtures, and examples/risky-go deliberately has
+      # no test files — it is the fixture proving `require_tests` rejects an
+      # untested repository. Go still instruments its statements and counts
+      # every one as uncovered, which costs about eight points and makes the
+      # figure look like a regression when nothing changed.
+      #
+      # Naming the packages that ship measures what is actually shipped.
+      - name: Measure coverage of the shipped packages
+        run: |
+          set -euo pipefail
+          go test \
+            -coverpkg=./cmd/...,./internal/...,./pkg/... \
+            -coverprofile=coverage.out \
+            -covermode=atomic \
+            ./cmd/... ./internal/... ./pkg/...
+
+      - name: Summarise
+        run: go tool cover -func=coverage.out | tail -1
+
+      - name: Upload coverage profile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+          if-no-files-found: ignore
+
+  # -------------------------------------------------------------------- lint
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: go.sum
+
+      # Pinned, not floating. A linter whose defaults move between runs turns a
+      # code change into a surprise failure, which trains people to retry rather
+      # than fix. Bump it in its own commit, and read the diff of the linter's
+      # own release notes before doing so.
+      #
+      # 2.14.0 is the version the configuration in .golangci.yml was verified
+      # against, not the newest one available. Matching what was tested is worth
+      # more than being current, because the alternative is discovering the
+      # mismatch on a pull request that has nothing to do with linting.
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2.14.0
+
+  # ------------------------------------------------- repository configuration
+  #
+  # Dependabot, Action metadata, issue forms, and workflow definitions are all
+  # configuration that the Go build never touches, so nothing else would notice
+  # them being wrong. Each of these fails quietly: a malformed workflow simply
+  # does not run, and an issue form with a bad schema renders blank.
+  repo:
+    name: Repository configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Validate every workflow parses
+        run: go run scripts/check-workflows.go
+
+      - name: Validate the issue forms
+        run: go run scripts/check-issue-templates.go
+
+      - name: Validate repository YAML
+        run: go run scripts/check-repo-yaml.go
+
+      # The extension manifest and its documentation drift apart silently:
+      # removing a setting from package.json leaves a row in the README telling
+      # users to change something that no longer exists. Nothing in the Go build
+      # reads either file.
+      - name: Validate the extension manifest against its docs
+        run: go run ide/vscode/scripts/check-manifest-docs.go
+
+      # The manifest references an icon, and the icon is generated rather than
+      # committed by hand. This asserts it is actually present, so a forgotten
+      # `npm run icon` fails here instead of at packaging time on someone's
+      # machine.
+      - name: Build the extension
+        working-directory: ide/vscode
+        run: |
+          npm ci --no-audit --no-fund
+          npm run compile
+          npm run icon
+          # Re-run the validator now that the entrypoint and icon exist, so the
+          # packaging preconditions are checked in CI rather than at release.
+          cd ../..
+          go run ide/vscode/scripts/check-manifest-docs.go
+
+      # Drives the compiled CLI client against a real binary. This is how the
+      # abort-classification bug was found: aborting a child makes Node emit
+      # `error` before `close`, so a superseded run looked like a startup failure
+      # and would have popped an error on every save.
+      - name: Smoke-test the extension CLI client
+        working-directory: ide/vscode
+        run: node scripts/smoke.js ../lensyxe ../examples/risky-go
+
+      # The installer's pure functions are asserted in a shell script. Running
+      # them here means the checksum verification and platform mapping cannot rot
+      # silently between releases.
+      - name: Test the installer
+        shell: bash
+        run: bash scripts/test-install.sh

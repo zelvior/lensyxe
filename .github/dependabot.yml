@@ -1,0 +1,132 @@
+# Dependency maintenance.
+#
+# Policy, in short:
+#
+#   * Go modules are checked monthly. Quarterly is the cadence for a project this
+#     size, and monthly means a security fix lands before it is being exploited
+#     in the wild rather than in the same quarter it was published.
+#   * Pull requests are grouped per ecosystem, so a viper bump does not arrive
+#     bundled with a lipgloss bump and get reviewed as a lump.
+#   * Direct dependencies are split from indirect ones. An indirect bump needs no
+#     discussion; a direct one changes the dependency surface and does.
+#   * Actions are weekly rather than monthly, because they run with repository
+#     credentials and are the more interesting target.
+#
+# Two deliberate non-choices:
+#
+#   * Nothing is auto-merged. A bot that merges dependency bumps into a project
+#     whose whole premise is that changes are reviewed is a contradiction. Every
+#     bump gets the same CI run a human contribution does, and a human decides.
+#   * Security updates are not auto-merged either. A security fix that lands
+#     unverified is still better than one that lands in six months, but the
+#     judgement about whether to take it immediately belongs to a person.
+
+version: 2
+
+updates:
+  # ---------------------------------------------------------------- Go modules
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: monthly
+      day: monday
+      time: "07:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - go
+    commit-message:
+      prefix: "build(deps)"
+      include: scope
+    groups:
+      # Security fixes come first and alone. Bundling a security bump with
+      # routine ones means neither gets read carefully, and a security change
+      # is exactly the thing that should be reviewed on its own.
+      security:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "security"
+      # The rest by ecosystem, so a viper bump can be judged on its own.
+      cobra:
+        patterns:
+          - "github.com/spf13/cobra"
+          - "github.com/spf13/pflag"
+      config:
+        patterns:
+          - "github.com/spf13/viper"
+          - "github.com/spf13/cast"
+          - "gopkg.in/yaml.v3"
+      tui:
+        patterns:
+          - "github.com/charmbracelet/lipgloss"
+          - "github.com/muesli/termenv"
+      storage:
+        patterns:
+          - "modernc.org/sqlite"
+          - "modernc.org/libc"
+          - "modernc.org/mathutil"
+          - "modernc.org/memory"
+      watch:
+        patterns:
+          - "github.com/fsnotify/fsnotify"
+    ignore:
+      # The release matrix is pinned to a Go version, and the module graph is
+      # kept compatible with it. A bump requiring a newer toolchain must be a
+      # deliberate decision that also updates go.mod, CI, and the README badge,
+      # not an unattended PR.
+      - dependency-name: "golang.org/x/sys"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-major"
+
+  # -------------------------------------------------- Direct dependencies only
+  #
+  # The gomod ecosystem above covers everything in the module graph. This second
+  # entry exists only to put direct dependencies in their own, smaller pull
+  # requests, because those are the ones that change what the project ships.
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: monthly
+      day: monday
+      time: "07:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - go
+      - review-needed
+    commit-message:
+      prefix: "build(deps)"
+    ignore:
+      - dependency-name: "*"
+        dependency-type: "indirect"
+
+  # ------------------------------------------------------------------ Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: "ci"
+    groups:
+      # The release workflow holds `contents: write`, `id-token: write`, and
+      # `attestations: write`, and it publishes artefacts. It gets its own PR so
+      # a change to it is never buried among unrelated bumps.
+      release:
+        patterns:
+          - "goreleaser/*"
+          - "actions/*attest*"
+      ci:
+        patterns:
+          - "*"

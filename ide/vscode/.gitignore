@@ -1,0 +1,11 @@
+# Node build output. The extension ships as compiled JavaScript, and the
+# JavaScript is derived from the TypeScript, so only one of the two is tracked.
+#
+# 301 installed packages is not something to put in git history, and it is fully
+# reproducible from the pinned lockfile.
+node_modules/
+out/
+*.vsix
+
+# TypeScript incremental build state.
+*.tsbuildinfo

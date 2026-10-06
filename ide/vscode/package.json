@@ -1,0 +1,149 @@
+{
+  "name": "lensyxe-vscode",
+  "displayName": "Lensyxe",
+  "description": "Deterministic engineering intelligence: repository health, file complexity, and hotspots in the editor.",
+  "version": "0.1.0",
+  "publisher": "zelvior",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zelvior/lensyxe.git",
+    "directory": "ide/vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/zelvior/lensyxe/issues"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "health",
+    "complexity",
+    "hotspot",
+    "maintainability",
+    "local-first"
+  ],
+  "icon": "media/icon.png",
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "lensyxe.analyze",
+        "title": "Analyze Repository",
+        "category": "Lensyxe",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "lensyxe.openDashboard",
+        "title": "Open Local Dashboard",
+        "category": "Lensyxe"
+      },
+      {
+        "command": "lensyxe.showHealthDetail",
+        "title": "Show Health Breakdown",
+        "category": "Lensyxe"
+      }
+    ],
+    "configuration": {
+      "title": "Lensyxe",
+      "properties": {
+        "lensyxe.executablePath": {
+          "type": "string",
+          "default": "lensyxe",
+          "markdownDescription": "Path to the `lensyxe` binary. A bare name is resolved on `PATH`; an absolute path is used as given.",
+          "scope": "machine-overridable"
+        },
+        "lensyxe.enableInlineDiagnostics": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Report complexity and hotspot findings as editor diagnostics. Turning this off leaves the status bar and sidebar untouched."
+        },
+        "lensyxe.runOnSave": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Re-analyze after a file is saved. Analyses are debounced and a new run supersedes an in-flight one, so this stays cheap on a large repository."
+        },
+        "lensyxe.debounceMs": {
+          "type": "number",
+          "default": 750,
+          "minimum": 0,
+          "maximum": 10000,
+          "markdownDescription": "How long to coalesce filesystem events before re-analyzing, in milliseconds. Mirrors the CLI's own watcher debounce."
+        },
+        "lensyxe.analysisTimeoutMs": {
+          "type": "number",
+          "default": 60000,
+          "minimum": 1000,
+          "markdownDescription": "Abort the CLI after this long. A hung child process would otherwise keep the extension busy indefinitely."
+        },
+        "lensyxe.complexityWarningThreshold": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "markdownDescription": "Estimated cyclomatic complexity at or above which a file gets a diagnostic. Matches the CLI's `moderate` band."
+        },
+        "lensyxe.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show the engineering health score in the status bar."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "lensyxe",
+          "title": "Lensyxe",
+          "icon": "media/activity-bar.svg"
+        }
+      ]
+    },
+    "views": {
+      "lensyxe": [
+        {
+          "id": "lensyxe.health",
+          "name": "Engineering Health"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "lensyxe.analyze",
+          "when": "view == lensyxe.health",
+          "group": "navigation@1"
+        },
+        {
+          "command": "lensyxe.openDashboard",
+          "when": "view == lensyxe.health",
+          "group": "navigation@2"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "smoke": "node scripts/smoke.js",
+    "icon": "go run scripts/gen-icon.go",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "@types/vscode": "^1.90.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "@vscode/vsce": "^2.32.0",
+    "eslint": "^8.57.1",
+    "typescript": "^5.5.4"
+  }
+}

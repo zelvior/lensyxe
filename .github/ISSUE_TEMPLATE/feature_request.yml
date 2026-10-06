@@ -1,0 +1,120 @@
+name: Feature request
+description: Propose a capability Lensyxe does not have, or a change to one it does.
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature requests are only useful when they argue from a problem rather
+        than from a solution, so the first field below is the important one. If
+        you can describe the situation that is annoying, we can find a way to fix
+        it even if your proposed mechanism is not the one we choose.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: >
+        Describe the situation, not the feature. "When a PR touches 300 files I
+        cannot tell which of them made the health score drop" is a problem.
+        "Add a --changed-files flag" is a solution, and it may be the wrong one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-workaround
+    attributes:
+      label: What do you do today instead?
+      description: >
+        A shell pipeline, a spreadsheet, a different tool, or nothing at all.
+        This tells us how much work the problem is causing and whether an existing
+        output already contains the answer.
+      validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which part of Lensyxe does this belong to?
+      options:
+        - Analysis / scoring
+        - Risk detection
+        - Output format or report
+        - CI integration or gates
+        - Monorepo support
+        - The dashboard
+        - The GitHub Action
+        - The installer or release process
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: >
+        Optional, and deliberately after the problem statement above. A rough
+        sketch or a command-line sketch is plenty.
+      render: shell
+      placeholder: |
+        lensyxe analyze . --changed-since origin/main
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: >
+        Including "another tool does this", and especially "I could work around
+        it by…". Knowing what you have already ruled out saves everyone the same
+        conversation twice.
+      validations:
+      required: false
+
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Which measurements does this affect?
+      description: >
+        If it changes what is measured or how it is weighted, name the dimension:
+        code health, dependency health, or maintainability. A change here is a
+        change to a documented model, so it needs a stronger argument than a
+        change to output formatting.
+      validations:
+      required: false
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints this must respect
+      description: >
+        These are not negotiable preferences, so please confirm the proposal
+        lives inside them. If it cannot, say so in the problem statement — that
+        is useful information, not a reason to withdraw it.
+      options:
+        - label: It works with no network access.
+          required: true
+        - label: >
+            It does not require sending repository data anywhere, including to a
+            service we operate.
+          required: true
+        - label: >
+            It does not invent a metric. Anything new must be measured from files
+            on disk or from `git`, and reported as not-applicable when it cannot
+            be computed.
+          required: true
+
+  - type: textarea
+    id: prior-art
+    attributes:
+      label: Links, prior art, or a discussion
+      description: >
+        Related issues, a pull request, a similar tool, a paper, or a blog post.
+        A URL to a real problem someone else has written up is worth a lot.
+      validations:
+      required: false

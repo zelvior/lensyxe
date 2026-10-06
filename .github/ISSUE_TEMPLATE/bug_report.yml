@@ -1,0 +1,169 @@
+name: Bug report
+description: Something Lensyxe reports incorrectly, crashes, or refuses to run.
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Two notes before you fill this in, because
+        they resolve a large share of reports:
+
+        1. **Is this in the [list of things Lensyxe does not
+           measure](https://github.com/zelvior/lensyxe#what-it-does-not-measure)?**
+           There is no code coverage percentage, no build duration, and no
+           vulnerability count, because measuring them would require running
+           your build or shipping data to a server. If that is what you were
+           looking for, that is a deliberate omission rather than a defect, and
+           the roadmap is the right place to argue for it.
+
+        2. **Is a metric reported as `-` or excluded from the total?** A metric
+           that could not be computed is reported as not-applicable and its
+           weight is redistributed, rather than being scored as zero. That is
+           working as designed.
+
+  - type: markdown
+    attributes:
+      value: |
+        ## Environment
+
+        Paste the output of `lensyxe version` below. It already contains the
+        Lensyxe version, the Go toolchain, and your OS/architecture, so one paste
+        covers all three.
+
+  - type: textarea
+    id: version
+    attributes:
+      label: Output of `lensyxe version`
+      description: Run `lensyxe version` and paste the whole thing.
+      render: shell
+      placeholder: |
+        Lensyxe Core v0.3.0
+        Commit:     a1b2c3d
+        Build Date: 2026-10-06T00:00:00Z
+        Built By:   goreleaser
+        Go Version: go1.22.5
+        OS/Arch:    darwin/arm64
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: How did you install Lensyxe?
+      description: >
+        The installer and `go install` produce different builds, and the Action
+        pins a version while a local build may not be one at all. It changes
+        what a fix has to cover.
+      options:
+        - install.sh
+        - go install
+        - The GitHub Action
+        - Built from source
+        - Homebrew or another package manager
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: repository-kind
+    attributes:
+      label: What kind of repository did you analyze?
+      options:
+        - A single repository
+        - A monorepo / workspace (npm, pnpm, Cargo, or Go workspaces)
+        - Not a git repository
+        - A single file or a very small directory
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: The exact command you ran
+      description: Including every flag. Default values matter here.
+      render: shell
+      placeholder: lensyxe analyze . --monorepo --fail-under-health 75
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant `.lensyxe.yml` contents
+      description: >
+        Thresholds change the verdict but not the measurement, so this matters
+        for gate and exit-code issues. Write `none` if you have no config file.
+      render: yaml
+      placeholder: |
+        min_health_score: 75
+        hotspot_threshold: 400
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect, and what did you get?
+      description: >
+        If the numbers differ, state the number you expected and, if you can,
+        where it came from. "Code health was 62 but my tests all pass" is a
+        report; "the score looked wrong" is not, because the score is a model and
+        a model can be argued with only once you say what you think it should be.
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Full command output
+      description: >
+        Standard output and standard error, with the score line included. If the
+        command printed nothing at all, say so explicitly — silence is a symptom.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: >
+        The smallest thing that shows the problem. If it needs a large or
+        private repository, describe the shape instead: roughly how many files,
+        how many languages, whether it is a monorepo, whether it is a git
+        repository with history.
+      render: shell
+      placeholder: |
+        1. git clone <repo> && cd <repo>
+        2. lensyxe analyze . --format json
+        3. observe that `health.metrics[0].score` is 0
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: verification
+    attributes:
+      label: Reproducibility
+      options:
+        - label: This happens every time, not intermittently.
+          required: true
+        - label: >
+            I confirmed it is not caused by a `.lensyxe.yml` by running with
+            `--no-gate` and the config removed.
+          required: false
+        - label: >
+            I searched the existing issues and it has not been reported.
+          required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ## A note on determinism
+
+        Output is meant to be byte-identical for the same commit on every
+        machine. If two machines, or two runs on one machine, produce different
+        output, that is a real bug and worth reporting even though it is harder
+        to describe. Please say so explicitly, because the investigation is
+        completely different.

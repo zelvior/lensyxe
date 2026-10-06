@@ -1,0 +1,41 @@
+# What is left out of the VSIX.
+#
+# NOTE: every non-"!" line here is a minimatch pattern that EXCLUDES files. This
+# file is a deny list. Writing "out/**/*.js" expecting it to include the compiled
+# output silently drops the extension entrypoint instead, and vsce fails with
+# "Extension entrypoint(s) missing" — which reads like a build problem rather than
+# an inverted pattern.
+#
+# VS Code executes out/**/*.js and nothing else. Everything below is build input,
+# tooling, or documentation that belongs in the repository, not in the package.
+
+# The 301 installed npm dependencies. Reproducible from the lockfile, and the
+# only reason --no-dependencies cannot be dropped entirely is that vsce still
+# walks them otherwise.
+node_modules/**
+
+# TypeScript sources and the compiled source maps beside them. The maps reference
+# absolute paths from this machine and would be useless in someone else's
+# error stack anyway.
+src/**
+out/**/*.js.map
+
+# Build and release tooling. gen-icon.go draws the icon that media/ already
+# contains, and smoke.js drives the compiled client against a real binary.
+# Neither is loaded by the extension host.
+scripts/**
+
+# The module boundary that keeps the Go toolchain out of node_modules. It exists
+# for the repository's Go build, not for this package.
+go.mod
+
+tsconfig.json
+.gitignore
+
+# The lockfile is what makes npm install reproducible for a developer building
+# from source; vsce already excludes it by default, and the package itself has no
+# runtime dependencies to install.
+
+# Build output of packaging itself.
+**/*.vsix
+**/*.tsbuildinfo
