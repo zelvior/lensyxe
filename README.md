@@ -164,6 +164,9 @@ Full arithmetic: **[docs/SCORING_SPEC.md](docs/SCORING_SPEC.md)**.
 | [`lensyxe analyze`](docs/CLI_REFERENCE.md#lensyxe-analyze) | Score a repository. The main entry point. |
 | [`lensyxe status`](docs/CLI_REFERENCE.md#lensyxe-status) | The same score in a few lines. Does not record a run. |
 | [`lensyxe setup`](docs/CLI_REFERENCE.md#lensyxe-setup) | Propose a `.lensyxe.yml` from a measurement of this repository. Writes nothing without `--write`. |
+| [`lensyxe blast`](docs/CLI_REFERENCE.md#lensyxe-blast) | Which files historically change together with the ones you are changing. |
+| [`lensyxe cognitive`](docs/CLI_REFERENCE.md#lensyxe-cognitive) | A 0-100 friction index from variable lifetime, call density, and scope depth. |
+| [`lensyxe decay`](docs/CLI_REFERENCE.md#lensyxe-decay) | Files that stopped changing, single-author silos, and activity half-life. |
 | [`lensyxe compare`](docs/CLI_REFERENCE.md#lensyxe-compare) | Compare two revisions via `git archive`, without touching the working tree. |
 | [`lensyxe history`](docs/CLI_REFERENCE.md#lensyxe-history) | Plot the recorded health timeline. Also spelled `log`. |
 | [`lensyxe watch`](docs/CLI_REFERENCE.md#lensyxe-watch) | Re-analyze on every change and stream the movement. |

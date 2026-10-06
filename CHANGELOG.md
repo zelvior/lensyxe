@@ -17,6 +17,60 @@ workflow does that, so the claim was removed rather than left standing.
 
 ### Added
 
+- **`lensyxe cognitive`** — measures three structural properties per file and
+  combines them into a 0-100 friction index: variable lifetime span (lines from a
+  local's declaration to its last use), context-switch density (distinct call
+  targets per hundred lines), and scope depth. Weights are documented and must sum
+  to 1; a configuration that does not is rejected rather than silently
+  renormalised, because renormalising would make the documented weights a lie and
+  the index unreproducible from them.
+
+  **There is no reading-time figure and no flag to enable one.** There is no
+  validated mapping from these properties to the minutes a person will spend
+  reading a file, so a number carrying that unit would be a measurement nobody
+  took. The index is a defined, rankable quantity; a duration is not.
+
+  Go is measured exactly with `go/parser`. TypeScript and JavaScript are measured
+  line by line, which is approximate; variable lifetime is not observable without
+  a parser for those languages and is excluded rather than guessed. Each file is
+  printed with its method, and approximate files never enter the repository median,
+  so the two are never compared as if they were the same measurement.
+- **`lensyxe decay`** — three separate findings from git history: unchanged files
+  inside the activity window, knowledge silos, and an activity half-life.
+- **`lensyxe blast`** — co-change coupling: which files have historically changed
+  in the same commit as the files you are changing. With no arguments it reviews
+  the pending changeset. Coupling is commits-touching-both over
+  commits-touching-the-rarer-file.
+
+### Notes on the three new commands
+
+Two evidence floors in `blast`, deliberately separate: one governs whether a
+single pair's co-occurrence counts, the other whether the history can support any
+ratio at all. Below ten commits nothing is predicted, because over four commits a
+coupling ratio is dominated by coincidence.
+
+`blast` is verified against ground truth rather than its own output: every
+co-changing pair in this repository was computed directly from `git`, and the
+command was confirmed to agree on both a positive (`.goreleaser.yaml` ↔
+`release.yml`, 4 shared commits) and a negative (`api.go` ↔ `api_test.go`, 2
+shared commits, correctly below the floor).
+
+The half-life in `decay` is not reported below 180 days of history. Over a
+shorter span any curve fits and the fitted number would describe the shape of the
+available commits rather than the decay of the code. The gate message says
+explicitly that this is a limit of the data, not a finding. The other two
+findings are still reported — refusing to fit is not a reason to withhold what
+can be measured. Silos need at least three commits: without that floor every
+two-commit file in any repository reports as a 100% silo, and this repository's
+own first run of the finding returned twenty-five such entries.
+
+Silos overlap the repository-wide bus factor `lensyxe analyze` already reports,
+and the output says so rather than presenting them as an independent signal.
+
+All three are described in terms of what they compute. Hotspot analysis and
+co-change coupling are extensions of published work; none of the three is claimed
+to be novel, and none of the output is presented as a prediction.
+
 - **`lensyxe setup`** — proposes a `.lensyxe.yml` from a measurement of the
   repository rather than from the documented template, which cannot know what is
   actually present. `ignore_dirs` lists only build directories that exist,

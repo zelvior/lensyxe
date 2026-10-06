@@ -12,6 +12,8 @@ help output is correct and this file is stale.
 - [`lensyxe status`](#lensyxe-status)
 - [`lensyxe setup`](#lensyxe-setup)
 - [`lensyxe blast`](#lensyxe-blast)
+- [`lensyxe cognitive`](#lensyxe-cognitive)
+- [`lensyxe decay`](#lensyxe-decay)
 - [`lensyxe compare`](#lensyxe-compare)
 - [`lensyxe history`](#lensyxe-history)
 - [`lensyxe watch`](#lensyxe-watch)
@@ -294,6 +296,112 @@ NO COUPLING REPORTED
 A file named on the command line that has never been committed is listed and
 marked, because it cannot have a coupling and silently omitting it would hide
 the case most likely to need a second pair of eyes.
+
+## `lensyxe cognitive`
+
+Measure structural properties that make code hard to follow, and combine them
+into a 0-100 friction index.
+
+```
+lensyxe cognitive [path] [flags]
+```
+
+| Flag | Default | Description |
+| :--- | :--- | :--- |
+| `--top <n>` | `0` | Show only the N highest-friction files. `0` shows all. |
+
+### What is measured
+
+| Measure | Definition |
+| :--- | :--- |
+| **Variable lifetime** | Lines between a local's declaration and its last use. |
+| **Context-switch density** | Distinct call targets referenced, per hundred lines. |
+| **Scope depth** | Deepest block nesting in a function. |
+
+Each is scaled to 0..1 by a documented saturation point, then weighted:
+
+| Component | Weight | Reason for the weight |
+| :--- | :--- | :--- |
+| Lifetime | `0.45` | Highest. A stale variable is the one invisible in the source: a reader sees the declaration and the use, and nothing about the span between them. |
+| Density | `0.35` | Middle. A function calling into eight packages asks the reader to hold eight contexts. |
+| Depth | `0.20` | Lowest. Nesting is the most immediately visible of the three; a reader struggling with it can see why. |
+
+Weights must sum to 1, and a configuration that does not is **rejected** rather
+than silently renormalised — renormalising would make the documented weights a
+lie and the index unreproducible from them.
+
+A lifetime only starts contributing above `20` lines, and saturates at `200`.
+Density saturates at 20 call targets per hundred lines; depth at 6 levels.
+
+### There is no reading-time figure
+
+This command does not print one, and there is no flag to make it.
+
+There is no validated mapping from these structural properties to the minutes a
+person will spend reading a file. Any such number would be a measurement nobody
+took, presented with the authority of a unit. The index is a defined, rankable
+quantity; a duration is not.
+
+### Measurement method is never blended
+
+Go files are parsed with `go/parser`, so every figure for them is exact. Other
+languages (TypeScript, JavaScript) are measured line by line, which is
+approximate — variable lifetime in particular is not observable without a
+parser for that language and is **excluded rather than guessed**.
+
+Each file is printed with its method, `[parsed]` or `[lexical: approximate]`, and
+approximate files are counted separately: they never enter the repository median.
+A median over exact and approximate measurements would describe neither.
+
+## `lensyxe decay`
+
+Find code that has stopped changing, and report how fast activity is falling.
+
+```
+lensyxe decay [path] [flags]
+```
+
+| Flag | Default | Description |
+| :--- | :--- | :--- |
+| `--window <days>` | `90` | Activity window for the unchanged-files finding. |
+| `--limit <n>` | `25` | Maximum files per finding. |
+| `--silo-share <f>` | `0.9` | Single-contributor share that marks a file a silo. |
+
+### Three findings, kept separate
+
+- **Unchanged files** — tracked files with no change inside the window. This is
+  a fact about the repository.
+- **Knowledge silos** — files where one contributor wrote at least 90% of the
+  commits, over a minimum of three commits. Two commits by one author is
+  arithmetic, not a finding, and the floor exists because without it every young
+  file reports as a 100% silo.
+- **Activity half-life** — how long the rate of change takes to halve.
+
+Silos **overlap the repository-wide bus factor** that `lensyxe analyze` already
+reports. They are not an independent second signal, and the output says so.
+
+### When the half-life is not reported
+
+Below **180 days** of history no half-life is produced:
+
+```
+ACTIVITY HALF-LIFE
+  history spans 0 day(s) and a decay curve needs at least 180 days to be
+  distinguishable from the shape of the available commits. No half-life is
+  reported. This is a limit of the data, not a finding that the code is stable.
+```
+
+Over a shorter span any curve fits, and the fitted number would describe the
+shape of the available commits rather than the decay of the code. When the gate
+fires, the other two findings are still reported — refusing to fit is not a
+reason to withhold what can be measured.
+
+When a half-life *is* fitted, both activity rates are printed alongside it, so
+the figure can be checked rather than taken on trust.
+
+Nothing in this output is a prediction. An untouched file is not dead code and a
+single-author file is not unmaintained code; these are places where a question
+has not been asked yet.
 
 ## `lensyxe compare`
 
