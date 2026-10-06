@@ -1,0 +1,185 @@
+# Lensyxe configuration
+#
+# Every key below is optional; the values shown are the built-in defaults.
+# Precedence: flag > this file (or LENSYXE_* env) > built-in default.
+#
+# A missing or malformed config never aborts a run: Lensyxe warns on stderr
+# and falls back to the defaults below.
+
+# ---------------------------------------------------------------------------
+# Analysis
+# ---------------------------------------------------------------------------
+
+# Days of git history considered by the churn and cadence metrics.
+git_window_days: 90
+
+# Code lines (blank lines and comments excluded) at or above which a file is
+# reported as a hotspot CANDIDATE.
+#
+# This only controls candidacy. A hotspot is marked CONFIRMED, and can raise a
+# high-severity risk, only when it clears all three of these thresholds:
+#   * 500 code lines
+#   * 30 lines added or deleted inside the git window
+#   * estimated complexity in the "high" band or above
+# Lowering this value widens the candidate list without lowering the bar for
+# confirmation, which is the intent: size alone is weak evidence of a problem.
+hotspot_threshold: 400
+
+# Turn the lexical complexity estimator off. Doing so zeroes every complexity
+# number rather than reporting a fabricated value.
+enable_complexity: true
+
+# Files larger than this many bytes are skipped so vendored blobs and generated
+# artifacts cannot distort LOC counts.
+max_file_bytes: 2097152
+
+# Directory names pruned from the code walk. Matched at any depth.
+#
+# This list REPLACES the built-in default rather than extending it. That is
+# deliberate: it means you can drop an entry you disagree with. The cost is
+# that this file must be updated when Lensyxe adds a default, or the removed
+# entry stops being ignored. "assets" is the one most likely to matter: it is
+# the conventional name for bundler output, and scoring a minified chunk as
+# source distorts the language breakdown and the score.
+ignore_dirs:
+  - .git
+  - .hg
+  - .svn
+  - .idea
+  - .vscode
+  - node_modules
+  - vendor
+  - dist
+  - build
+  - out
+  - target
+  - coverage
+  - .next
+  - .nuxt
+  - .cache
+  - .venv
+  - venv
+  - __pycache__
+  - .terraform
+  - .gradle
+  - bin
+  - obj
+  - assets
+  - public
+  - static
+
+# Overall scan timeout in seconds. 0 disables the deadline.
+timeout_seconds: 60
+
+# Detect a monorepo layout and score each workspace package individually.
+#
+# Off by default because most repositories are not workspaces, and detection
+# reads several root manifests to find that out. When enabled, every analyzing
+# command produces a per-package breakdown; `lensyxe analyze --monorepo` turns
+# it on for a single run regardless of this setting.
+#
+# Recognized layouts: pnpm-workspace.yaml, lerna.json, go.work, a root
+# Cargo.toml with [workspace], and a root package.json with "workspaces".
+detect_workspace: false
+
+# ---------------------------------------------------------------------------
+# AI explanation layer (optional, bring your own key)
+# ---------------------------------------------------------------------------
+#
+# OFF unless you set this. The layer only rewrites figures the deterministic
+# engine already produced into prose; it never computes a score or invents a
+# metric. A summary containing an unmeasured number is discarded rather than
+# shown.
+#
+# `ai_key_env` names the ENVIRONMENT VARIABLE holding the key, not the key
+# itself. Keeping the key out of this file is deliberate: a config file gets
+# committed, printed, and copied into snapshots.
+#
+#   export LENSYXE_AI_KEY=sk-...
+#   export LENSYXE_AI_PROVIDER=openai     # or openrouter, gemini
+#   lensyxe analyze --explain
+
+# Enable the explanation layer by default. The --explain flag overrides this
+# per run.
+explain: false
+
+# Provider to call: openrouter, openai, or gemini. Empty defers to
+# $LENSYXE_AI_PROVIDER.
+ai_provider: ""
+
+# Model identifier. Empty uses $LENSYXE_AI_MODEL, then the provider default.
+ai_model: ""
+
+# Name of the environment variable holding the API key.
+ai_key_env: LENSYXE_AI_KEY
+
+# ---------------------------------------------------------------------------
+# History
+# ---------------------------------------------------------------------------
+
+# Default row count for `lensyxe history`.
+history_limit: 10
+
+# SQLite database backing the history store. Relative paths resolve against the
+# analyzed repository; absolute paths are used as-is. Delete this file to erase
+# all recorded history.
+database_path: .lensyxe/history.db
+
+# ---------------------------------------------------------------------------
+# Compare
+# ---------------------------------------------------------------------------
+
+# Repository `lensyxe compare` operates within. Leave empty to use the current
+# working directory.
+compare_root: ""
+
+# ---------------------------------------------------------------------------
+# Watch
+# ---------------------------------------------------------------------------
+
+# Milliseconds to coalesce filesystem events into one re-analysis. Editors write
+# a file in several operations, so without a debounce one save triggers a burst
+# of redundant scans.
+watch_debounce_ms: 250
+
+# Also re-analyze every N seconds even when nothing changed. 0 means react to
+# changes only, which is what an idle repository should do.
+watch_interval_seconds: 0
+
+# ---------------------------------------------------------------------------
+# Thresholds (CI gates)
+# ---------------------------------------------------------------------------
+#
+# Every rule is optional. A configured breach makes `lensyxe analyze` exit with
+# code 2 (distinct from 1, which means something broke), after the report has
+# been printed and the snapshot recorded.
+#
+# Numeric thresholds use an explicit UNSET sentinel rather than zero, so an
+# explicit 0 is honored as a real bound. `max_risk_count: 0` means "no risks
+# tolerated", not "the rule is disabled".
+#
+# Rules that need a comparison baseline (max_health_drop, and the relative form
+# of max_complexity_increase) are skipped on the very first recorded run: a
+# repository with no history cannot have regressed against one.
+
+# Fail when the overall health score is below this value.
+# min_health_score: 70
+
+# Fail when the score falls more than this many points versus the previous
+# stored snapshot.
+# max_health_drop: 5
+
+# Fail when average estimated complexity rises by more than this.
+# max_complexity_increase: 1.5
+
+# Fail when the total risk count exceeds this.
+# max_risk_count: 20
+
+# Fail when the confirmed hotspot count exceeds this.
+# max_hotspots: 3
+
+# Fail when a manifest has no lockfile, so installs are not reproducible.
+# fail_on_drift: true
+
+# Fail when no test files are detected.
+# require_tests: true

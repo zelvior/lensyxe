@@ -1,0 +1,63 @@
+# Normalize line endings so a checkout is identical on every platform.
+#
+# This is not cosmetic, and on this project it is load-bearing.
+#
+# Git for Windows sets core.autocrlf=true at the system level by default. That
+# rewrites LF to CRLF in the working copy for every file .gitattributes does not
+# pin. The direct consequence here is that internal/report/testdata/golden/*.txt
+# and *.json would be checked out with CRLF and compared BYTE-EXACTLY by
+# TestGoldenTerminal and friends, so every golden test would fail on Windows
+# while passing on Linux. A failure that depends only on the contributor's
+# operating system is the worst kind of test failure: it looks like a code
+# problem and is not one.
+#
+# The rules below do two things:
+#   * text=auto  normalizes to LF in the repository, so no CRLF is ever committed
+#   * eol=lf     checks out with LF everywhere, including Windows
+#
+# text=auto means git decides whether a file is text, so binaries are untouched.
+
+* text=auto eol=lf
+
+# Shell scripts that users pipe to bash or that the release pipeline runs.
+#
+# Restated explicitly for documentation value rather than necessity: the default
+# above already covers them. A shebang of `#!/usr/bin/env bash\r` points at a
+# path that does not exist, and bash reports `$'\r': command not found`, which
+# is confusing enough that the failure deserves a comment next to the rule that
+# prevents it.
+*.sh text eol=lf
+scripts/** text eol=lf
+
+# Configuration and workflow definitions. YAML with CRLF parses, but a value
+# that ends in CR becomes part of the string, which silently breaks the string
+# comparisons in the config loader and the workflow analyzer.
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# The release spec is read by a Go program, so bytes matter.
+.goreleaser.yaml text eol=lf
+
+# Golden report fixtures. Pinned separately because these are compared byte for
+# byte, and because a silent line-ending change here would look like a layout
+# regression in a twelve-file diff.
+internal/report/testdata/** text eol=lf
+
+# Generated or machine-managed; the diff is noise and the merge is a conflict.
+go.sum -diff
+dashboard/package-lock.json -diff
+
+# Binary and vendored content: never touched.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.zip binary
+*.gz binary
+*.exe binary
+*.db binary
+
+# The embedded dashboard is copied in by scripts/prepare-release.sh and is not
+# committed, but declare it binary so a local rebuild cannot corrupt the index.
+internal/server/assets/** binary

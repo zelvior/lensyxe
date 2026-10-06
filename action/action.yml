@@ -1,0 +1,401 @@
+name: 'Lensyxe Action'
+description: 'Deterministic engineering health analysis with evidence-backed risks and pull request commentary.'
+author: 'Lensyxe'
+
+branding:
+  icon: 'activity'
+  color: 'blue'
+
+inputs:
+  version:
+    description: 'Lensyxe version to install, for example v0.3.0. Use "latest" for the newest release.'
+    required: false
+    default: 'latest'
+
+  path:
+    description: 'Directory to analyze, relative to the repository root.'
+    required: false
+    default: '.'
+
+  format:
+    description: >-
+      Human-readable report format written to the job summary: terminal,
+      markdown, or json. Machine-readable extraction always runs against JSON
+      regardless of this setting, because the step outputs are parsed from it.
+    required: false
+    default: 'markdown'
+
+  fail-on-threshold:
+    description: 'Exit non-zero when a configured threshold is breached.'
+    required: false
+    default: 'true'
+
+  comment-on-pr:
+    description: 'Post or update the Lensyxe comment on the pull request.'
+    required: false
+    default: 'true'
+
+  fail-under-health:
+    description: 'Exit 2 when the health score is below this value. Empty disables the gate.'
+    required: false
+    default: ''
+
+  fail-on-critical-risk:
+    description: 'Exit 2 when any critical risk is detected.'
+    required: false
+    default: 'false'
+
+  fail-on-test-ratio-drop:
+    description: >
+      Exit 2 when the test-to-code file ratio falls by more than this many
+      percentage points. Requires a baseline snapshot; ignored without one.
+      Lensyxe does not measure line coverage.
+    required: false
+    default: ''
+
+  baseline:
+    description: >
+      Path to a base-revision snapshot JSON. When omitted, the step falls back to
+      analyzing the base ref so the comparison needs no external artifact.
+    required: false
+    default: ''
+
+  workflow-fail-severity:
+    description: >
+      Also exit 2 when a .github/workflows finding reaches this severity or
+      worse: critical, high, medium, low, or none.
+    required: false
+    default: 'none'
+
+  token:
+    description: 'Token used to post the comment. Defaults to the workflow token.'
+    required: false
+    default: ''
+
+  min-health-score:
+    description: >
+      DEPRECATED and ignored. This duplicated `fail-under-health`, so setting
+      one silently did nothing. Use `fail-under-health` instead, or set
+      `min_health_score` in .lensyxe.yml.
+    required: false
+    default: ''
+
+outputs:
+  score:
+    description: 'Overall health score, 0 to 100.'
+    value: ${{ steps.analyze.outputs.score }}
+  grade:
+    description: 'Letter grade for the health score.'
+    value: ${{ steps.analyze.outputs.grade }}
+  risk-count:
+    description: 'Number of risks detected.'
+    value: ${{ steps.analyze.outputs.risk-count }}
+  comment-body:
+    description: 'The rendered pull request comment body.'
+    value: ${{ steps.analyze.outputs.comment-body }}
+  comment-file:
+    description: 'Path to the rendered comment body on disk.'
+    value: ${{ steps.analyze.outputs.comment-file }}
+
+runs:
+  using: 'composite'
+  steps:
+    # ---------------------------------------------------------------------
+    # Checkout
+    # ---------------------------------------------------------------------
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        # History is required: the git analyzer reads local commits, and a
+        # shallow clone would silently halve the churn window.
+        fetch-depth: 0
+        persist-credentials: false
+
+    # ---------------------------------------------------------------------
+    # Install
+    # ---------------------------------------------------------------------
+    - name: Resolve Lensyxe version
+      id: resolve
+      shell: bash
+      run: |
+        set -euo pipefail
+        version='${{ inputs.version }}'
+        if [ "$version" = "latest" ]; then
+          # Resolve "latest" to a concrete version so the install is
+          # reproducible within a run and the step is cacheable.
+          version="$(curl -fsSL https://api.github.com/repos/zelvior/lensyxe/releases/latest \
+            | grep '"tag_name":' \
+            | head -1 \
+            | cut -d'"' -f4)"
+        fi
+        if [ -z "$version" ]; then
+          echo "::error::could not resolve Lensyxe version '${version}'"
+          exit 1
+        fi
+        # Release tags carry a leading `v` but the release assets do not, because
+        # goreleaser's .Version strips it. Normalizing here keeps the cache key
+        # and the resolved version in agreement with the published file names.
+        version="${version#v}"
+        echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+    - name: Cache Lensyxe binary
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: .lensyxe-bin/lensyxe
+        key: lensyxe-${{ runner.os }}-${{ runner.arch }}-${{ steps.resolve.outputs.version }}
+
+    - name: Install Lensyxe
+      shell: bash
+      run: |
+        set -euo pipefail
+        version='${{ steps.resolve.outputs.version }}'
+        install_dir="$PWD/.lensyxe-bin"
+
+        if [ -x "$install_dir/lensyxe" ]; then
+          echo "using cached lensyxe $version"
+        else
+          mkdir -p "$install_dir"
+          # Delegate to install.sh instead of downloading the archive here.
+          #
+          # Two reasons, both of which came from this step getting it wrong:
+          #
+          #   1. Artifact names come from the goreleaser name_template:
+          #      lensyxe_{version}_{Title(Os)}_{x86_64|arm64}.{tar.gz|zip},
+          #      with a .zip for Windows. This step had its own copy of that
+          #      mapping, which drifted and 404'd on every platform. There is
+          #      now one place that knows how to spell a release asset.
+          #
+          #   2. install.sh verifies the archive against checksums.txt before
+          #      extracting anything. This step did not, so it downloaded and
+          #      executed a binary with no integrity check at all.
+          #
+          # Pinned to the resolved tag rather than `main`: a workflow that
+          # resolved a version must not install a script from a branch that has
+          # moved on since.
+          installer="https://raw.githubusercontent.com/zelvior/lensyxe/v${version}/install.sh"
+          echo "installing lensyxe ${version} from ${installer}"
+          curl -fsSL "$installer" \
+            | LENSYXE_VERSION="$version" LENSYXE_PREFIX="$install_dir" sh
+        fi
+        .lensyxe-bin/lensyxe version
+
+    # ---------------------------------------------------------------------
+    # Baseline
+    # ---------------------------------------------------------------------
+    # Deltas need a base measurement. Without an external artifact the base ref
+    # is exported and analyzed, which keeps the action self-contained.
+    - name: Resolve baseline snapshot
+      id: baseline
+      if: ${{ inputs.pr-comment == 'true' && inputs.baseline == '' }}
+      shell: bash
+      env:
+        TOKEN: ${{ inputs.token != '' && inputs.token || github.token }}
+      run: |
+        set -euo pipefail
+        base='${{ github.event.pull_request.base.sha }}'
+        if [ -z "$base" ] || [ "$base" = "" ]; then
+          echo "base=same-revision" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        tmp="$(mktemp -d)"
+        trap 'rm -rf "$tmp"' EXIT
+
+        # git archive reads the committed tree without touching the working
+        # tree or HEAD, so the checkout stays pristine.
+        git fetch --no-tags --depth=1 origin "$base" 2>/dev/null || true
+        if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+          echo "base=unavailable" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        mkdir -p "$tmp/base"
+        git archive "$base" | tar -x -C "$tmp/base"
+
+        # Analyze the base tree with persistence and gating disabled: it is a
+        # measurement, not a verdict.
+        if (cd "$tmp/base" && "$GITHUB_WORKSPACE/.lensyxe-bin/lensyxe" analyze . \
+              --format json --no-persist --no-gate > "$GITHUB_WORKSPACE/.lensyxe-baseline.json"); then
+          echo "base=$GITHUB_WORKSPACE/.lensyxe-baseline.json" >> "$GITHUB_OUTPUT"
+        else
+          # A base that cannot be analyzed must not fail the run; the comment
+          # simply reports absolute values instead of deltas.
+          echo "::warning::could not analyze base revision $base; comment will omit deltas"
+          echo "base=unavailable" >> "$GITHUB_OUTPUT"
+        fi
+
+    # ---------------------------------------------------------------------
+    # Deprecation notices
+    # ---------------------------------------------------------------------
+    - name: Report deprecated inputs
+      shell: bash
+      run: |
+        # `min-health-score` never did anything: it duplicated
+        # `fail-under-health`, which is the real input. Anyone who set it was
+        # getting no threshold check and no indication of it. Rather than
+        # silently ignoring it, say so and point at the replacement.
+        if [ -n '${{ inputs.min-health-score }}' ]; then
+          echo "::warning::'min-health-score' is deprecated and has no effect. Use 'fail-under-health: ${{ inputs.min-health-score }}' instead."
+        fi
+
+    # ---------------------------------------------------------------------
+    # Analyze
+    # ---------------------------------------------------------------------
+    - name: Analyze
+      id: analyze
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        baseline='${{ inputs.baseline }}'
+        if [ -z "$baseline" ] && [ '${{ steps.baseline.outputs.base }}' != '' ] \
+           && [ '${{ steps.baseline.outputs.base }}' != 'unavailable' ] \
+           && [ '${{ steps.baseline.outputs.base }}' != 'same-revision' ]; then
+          baseline='${{ steps.baseline.outputs.base }}'
+        fi
+
+        args=(analyze '${{ inputs.path }}' --format json --no-persist)
+        [ -n "$baseline" ] && args+=(--baseline "$baseline")
+
+        if [ '${{ inputs.fail-on-threshold }}' = 'true' ]; then
+          [ '${{ inputs.fail-under-health }}' != '' ] \
+            && args+=(--fail-under-health '${{ inputs.fail-under-health }}')
+          [ '${{ inputs.fail-on-critical-risk }}' = 'true' ] \
+            && args+=(--fail-on-critical-risk)
+          [ '${{ inputs.fail-on-test-ratio-drop }}' != '' ] \
+            && args+=(--fail-on-test-ratio-drop '${{ inputs.fail-on-test-ratio-drop }}')
+          [ '${{ inputs.workflow-fail-severity }}' != 'none' ] \
+            && args+=(--workflow-fail-severity '${{ inputs.workflow-fail-severity }}')
+        fi
+
+        # The comment is generated even when a gate fails, so the evidence is
+        # published rather than lost with the failed step.
+        comment_file="$RUNNER_TEMP/lensyxe-comment.md"
+        if [ '${{ inputs.comment-on-pr }}' = 'true' ]; then
+          args+=(--pr-comment "$comment_file")
+        fi
+
+        set +e
+        "$GITHUB_WORKSPACE/.lensyxe-bin/lensyxe" "${args[@]}" > "$RUNNER_TEMP/lensyxe.json"
+        status=$?
+        set -e
+
+        if [ -f "$RUNNER_TEMP/lensyxe.json" ] && [ -s "$RUNNER_TEMP/lensyxe.json" ]; then
+          read -r score grade risks <<<"$(jq -r '[(.health.score // 0), (.health.grade // "?"), ((.risks // []) | length)] | @tsv' \
+            "$RUNNER_TEMP/lensyxe.json" 2>/dev/null || echo '0 ? 0')"
+          echo "score=${score}" >> "$GITHUB_OUTPUT"
+          echo "grade=${grade}" >> "$GITHUB_OUTPUT"
+          echo "risk-count=${risks}" >> "$GITHUB_OUTPUT"
+
+          # The human-readable report is a SECOND run in the requested format.
+          #
+          # It cannot be the same run: the step outputs above are parsed from
+          # JSON, so reformatting that stream would mean parsing Markdown. The
+          # analysis is deterministic, so the second run yields identical
+          # numbers -- and the gates were already evaluated by the first run,
+          # so this cannot turn a passing build into a failing one.
+          report_fmt='${{ inputs.format }}'
+          case "$report_fmt" in
+            json)
+              # The JSON is already captured; reuse it rather than re-running.
+              cp "$RUNNER_TEMP/lensyxe.json" "$RUNNER_TEMP/lensyxe-report.out"
+              ;;
+            terminal|md|markdown)
+              case "$report_fmt" in
+                md) report_fmt=markdown ;;
+              esac
+              # --no-gate: this is a rendering for humans, not a second verdict.
+              "$GITHUB_WORKSPACE/.lensyxe-bin/lensyxe" \
+                analyze '${{ inputs.path }}' \
+                --format "$report_fmt" --no-persist --no-gate \
+                > "$RUNNER_TEMP/lensyxe-report.out" 2>/dev/null || true
+              ;;
+            *)
+              echo "::error::unknown format '$report_fmt' (want terminal, markdown, or json)"
+              exit 1
+              ;;
+          esac
+
+          if [ -s "$RUNNER_TEMP/lensyxe-report.out" ]; then
+            {
+              echo '## Lensyxe'
+              echo
+              echo "Score \`${score}\` (grade ${grade}), ${risks} risk(s)."
+              echo
+              cat "$RUNNER_TEMP/lensyxe-report.out"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+        else
+          echo "score=" >> "$GITHUB_OUTPUT"
+          echo "grade=" >> "$GITHUB_OUTPUT"
+          echo "risk-count=" >> "$GITHUB_OUTPUT"
+        fi
+
+        if [ -f "$comment_file" ]; then
+          echo "comment-file=$comment_file" >> "$GITHUB_OUTPUT"
+          {
+            echo '## 🔍 Lensyxe Engineering Impact'
+            echo
+            cat "$comment_file"
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+        # Exit 2 is a policy rejection, which must be distinguishable from a
+        # crash (1) and from success (0).
+        if [ "$status" -eq 2 ]; then
+          echo "::error::Lensyxe thresholds were not met (exit 2)"
+          exit 2
+        fi
+        if [ "$status" -ne 0 ]; then
+          echo "::error::Lensyxe failed with exit code $status"
+          exit "$status"
+        fi
+
+    # ---------------------------------------------------------------------
+    # Comment
+    # ---------------------------------------------------------------------
+    - name: Post pull request comment
+      if: ${{ always() && inputs.comment-on-pr == 'true' && github.event_name == 'pull_request' }}
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token != '' && inputs.token || github.token }}
+        script: |
+          const fs = require('fs');
+          const file = '${{ steps.analyze.outputs.comment-file }}';
+          if (!file || !fs.existsSync(file)) {
+            core.info('no comment body produced');
+            return;
+          }
+          const body = fs.readFileSync(file, 'utf8');
+          const marker = '<!-- lensyxe:engineering-impact -->';
+          if (!body.includes(marker)) {
+            core.warning('comment body has no Lensyxe marker; refusing to post');
+            return;
+          }
+
+          // Update the existing Lensyxe comment rather than posting a new one
+          // on every push, which would bury the pull request.
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            per_page: 100,
+          });
+          const existing = comments.find(c => c.body && c.body.includes(marker));
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existing.id,
+              body,
+            });
+            core.info(`updated comment ${existing.id}`);
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+            core.info('created comment');
+          }

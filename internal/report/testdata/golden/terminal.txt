@@ -1,0 +1,83 @@
+lensyxe 0.3.0-test  engineering intelligence
+path    /tmp/demo
+scanned 2026-01-02 03:04:05Z in 42 ms
+--------------------------------------------------------------
+
+ENGINEERING HEALTH
+   71.5 / 100   C
+  ██████████████░░░░░░
+  Overall adequate.
+  Code health             55.0     40%
+  Dependency health       90.0     30%
+  Maintainability (Git)   75.0     30%
+
+
+
+CODE
+  files          32 source / 8 test
+  lines          3000 physical / 2400 code / 600 blank+comment
+  average        60.0 LOC per file
+  largest        900 LOC in a single file
+  test ratio     0.20 files, 25.0% of lines
+  complexity     avg 5.2, max 42.0 (internal/engine.go), nesting 9
+
+  languages
+  language  files  lines  share
+  Go           32   2000  83.3%
+  Shell         8    400  16.7%
+
+  worst-complexity files
+  path                lines  complexity      level  nesting
+  internal/engine.go    900        42.0  very_high        9
+  internal/report.go    400         5.3        low        4
+
+  hotspots (classification = size|churn|complexity|confirmed)
+  path                lines  churn    cx                   classification
+  internal/engine.go    900    220  42.0  size,churn,complexity,confirmed
+  internal/legacy.go    600      4   3.0                             size
+
+
+GIT
+  branch         main @ abc123def456
+  commits        100 total / 20 in last 90 days
+  cadence        1.6 commits per week
+  authors        3 authors, bus factor 1, top author share 0%
+  last commit    2026-01-02 (1 days ago)
+  churn          +500 / -120 lines across 15 files, top-3 share 40.0%, concentration 0.20
+
+  high-churn files
+  path                commits  +lines  -lines
+  internal/engine.go        5     100      20
+
+
+DEPENDENCIES
+  manifests      2 ecosystem(s)
+  counts         4 direct / 2 dev / 6 total / 48 transitive
+  reproducibility locked
+
+  ecosystem      manifest  lockfile  direct/dev/trans
+  gomod            go.mod    go.sum            4/2/48
+  npm        package.json      none             3/1/0
+
+
+RISKS (2)
+  🔴 CRIT Confirmed hotspot  (-9.4 pts)
+    subject  internal/engine.go
+    LOC (internal/engine.go) 900 code lines
+    Churn (internal/engine.go) 220 lines modified in the git window
+    Complexity (internal/engine.go) 42 estimated cyclomatic complexity
+    -> Split internal/engine.go until no unit exceeds the size threshold.
+
+  🟠 HIGH Missing lockfile  (-4.5 pts)
+    subject  package.json
+    Lockfile (package.json) no lockfile found
+
+
+FINDINGS
+  HIGH Missing lockfile for package.json  package.json
+    no lockfile
+  MEDI No test files detected
+    none
+
+--------------------------------------------------------------
+schema v0.2 - weights: code 40%, dependencies 30%, git 30%

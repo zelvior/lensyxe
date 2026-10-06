@@ -1,0 +1,27 @@
+lensyxe compare
+repo    /tmp/demo
+
+  A  1111111      v1.0.0                   B  2222222      v1.1.0
+  release: v1.0.0                          release: v1.1.0
+
+--------------------------------------------------------------
+
+HEALTH SCORE
+  88.0 -> 84.0   B   (-4.0)
+  The score fell 4 points.
+
+  metric deltas
+  metric       from  to  delta
+  Code health    91  86   -5.0
+
+
+NEW RISKS (1)
+  🟠 HIGH Confirmed hotspot  (-7.0 pts)
+    newly confirmed
+
+
+RESOLVED RISKS (1)
+  FIXED Large file candidate
+
+--------------------------------------------------------------
+schema v0.2 - =

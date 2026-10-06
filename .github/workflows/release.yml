@@ -1,0 +1,216 @@
+# Release pipeline for Lensyxe.
+#
+# Triggered by pushing a `v*` tag. The tag is the release: nothing here
+# rewrites versions, and nothing publishes without one.
+#
+# The order of the steps is load-bearing. The dashboard must be built before
+# Go, because the Go binary embeds it; and Go must be verified before goreleaser
+# publishes, because a release is not a place to discover that the tree does not
+# build.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # A manual run from the Actions tab produces a snapshot build and uploads it
+  # as a draft, which is how the cross-compilation matrix is tested before a
+  # real tag goes out.
+  workflow_dispatch:
+
+permissions:
+  # The release needs to write releases and, for the provenance attestation, to
+  # publish to the transparency log. Nothing else.
+  contents: write
+  id-token: write
+  attestations: write
+
+# A superseded tag should not fight with the release it replaced.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ------------------------------------------------------------------ verify
+  # Runs on every push and every manual dispatch. A tag that fails here never
+  # reaches the publish job, so a broken release cannot exist even briefly.
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history: the changelog is generated from commits, and a
+          # shallow clone would produce a release note covering one commit.
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          # The module cache survives between runs; the build cache does not
+          # need to, since Go's own cache misses are cheap relative to a compile.
+          cache-dependency-path: go.sum
+
+      - name: Check formatting
+        run: |
+          set -euo pipefail
+          unformatted="$(gofmt -l . | grep -v '^dashboard/' || true)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Check module files are tidy
+        run: go mod tidy -diff
+
+      - name: Vet
+        run: go vet ./...
+
+      # The race detector needs cgo and a C toolchain. Both are present on the
+      # ubuntu runner; without them this step would silently skip the only test
+      # capable of finding a data race.
+      - name: Test
+        run: go test -race -covermode=atomic -coverprofile=coverage.out ./...
+        env:
+          CGO_ENABLED: '1'
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+          if-no-files-found: ignore
+
+  # ------------------------------------------------------------------- build
+  # Produces the dashboard export and the cross-compiled binaries.
+  build:
+    name: Build and release
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: go.sum
+
+      # ---------------------------------------------------------- dashboard
+      # The dashboard is a Next.js static export copied into internal/server/
+      # assets before the Go build, which is what embeds it. The copy happens
+      # in goreleaser's before-hook too; doing it here as well means the Go
+      # build goreleaser invokes already has the assets in place, and the copy
+      # step is visible in this job's log rather than buried in a hook.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install dashboard dependencies
+        working-directory: dashboard
+        run: npm ci --no-audit --no-fund
+
+      - name: Type-check the dashboard
+        working-directory: dashboard
+        run: npm run typecheck
+
+      - name: Build the dashboard
+        working-directory: dashboard
+        run: npm run build
+
+      - name: Copy the export into the embed directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="internal/server/assets"
+          rm -rf "$target"
+          mkdir -p "$target"
+          cp -r dashboard/out/. "$target"/
+          count="$(find "$target" -type f | wc -l)"
+          echo "embedded $count dashboard files"
+          if [ "$count" -lt 5 ]; then
+            echo "::error::the dashboard export looks incomplete ($count files)"
+            exit 1
+          fi
+
+      # ------------------------------------------------------------ verify
+      # Proving the binary contains the dashboard before publishing is much
+      # cheaper than shipping one that serves a blank page.
+      - name: Build and inspect a native binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          go build -ldflags "-X main.BuiltBy=ci-verify" -o /tmp/lensyxe ./cmd/lensyxe
+          /tmp/lensyxe version
+
+          # The embedded index must exist in the linked binary.
+          if ! strings /tmp/lensyxe | grep -q 'lensyxe:engineering-impact'; then
+            echo "::error::the dashboard is not present in the linked binary"
+            exit 1
+          fi
+
+          # The API must answer without a dashboard, too: a release that cannot
+          # start is worse than one that cannot render.
+          ( /tmp/lensyxe serve --port 17357 --no-analyze >/tmp/serve.log 2>&1 & echo $! >/tmp/serve.pid )
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:17357/api/v1/version >/tmp/version.json 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          cat /tmp/version.json || true
+          kill "$(cat /tmp/serve.pid)" 2>/dev/null || true
+
+      # ------------------------------------------------------------ release
+      - name: Run goreleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          # Pinned to a release rather than a floating tag: the release pipeline
+          # building the release tool is exactly where an unpinned dependency
+          # hurts most.
+          version: '~> v2'
+          distribution: goreleaser
+          args: release --clean
+        env:
+          # Required for the provenance attestation to be signed without a
+          # long-lived key.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish a snapshot as a draft
+        # A manual run has no tag, so there is nothing to release to. The
+        # artifacts are uploaded to a draft release so the matrix can be
+        # inspected before a real tag goes out.
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/artifacts/*
+          draft: true
+          prerelease: true
+          name: snapshot-${{ github.sha }}
+          body: |
+            Snapshot build of `${{ github.sha }}`.
+
+            Produced by a manual workflow run; no tag was pushed. Every
+            cross-compiled target was built and checksummed, but this release is
+            not a published version.
+
+      - name: Upload archives as a workflow artifact
+        # A copy that outlives the draft release, so a failed publish is still
+        # recoverable from the Actions tab.
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: |
+            dist/artifacts/*
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,320 @@
+{
+  "schema_version": "0.2",
+  "tool": "lensyxe",
+  "version": "0.3.0-test",
+  "root": "/tmp/demo",
+  "generated_at": "2026-01-02T03:04:05Z",
+  "duration_ms": 42,
+  "code": {
+    "files": 40,
+    "total_lines": 3000,
+    "code_lines": 2400,
+    "blank_or_comment": 600,
+    "max_file_lines": 900,
+    "average_lines": 60,
+    "languages": [
+      {
+        "name": "Go",
+        "files": 32,
+        "lines": 2000,
+        "test_files": 8
+      },
+      {
+        "name": "Shell",
+        "files": 8,
+        "lines": 400,
+        "test_files": 0
+      }
+    ],
+    "hotspots": [
+      {
+        "path": "internal/engine.go",
+        "lines": 900,
+        "language": "Go",
+        "churn": 220,
+        "complexity": 42,
+        "level": "very_high",
+        "classification": "size,churn,complexity,confirmed",
+        "confirmed": true,
+        "rationale": "900 code lines; over every threshold."
+      },
+      {
+        "path": "internal/legacy.go",
+        "lines": 600,
+        "language": "Go",
+        "churn": 4,
+        "complexity": 3,
+        "level": "low",
+        "classification": "size",
+        "confirmed": false,
+        "rationale": "600 code lines; simple."
+      }
+    ],
+    "bytes": 0,
+    "truncated": false,
+    "test_files": 8,
+    "source_files": 32,
+    "test_file_ratio": 0.2,
+    "test_line_ratio": 0.25,
+    "has_tests": true,
+    "complexity": {
+      "measured": true,
+      "files": 40,
+      "functions": 300,
+      "branch_points": 1200,
+      "max_nesting": 9,
+      "average_complexity": 5.2,
+      "max_complexity": 42,
+      "max_complexity_file": "internal/engine.go",
+      "very_high_functions": 2,
+      "high_functions": 4,
+      "worst_files": [
+        {
+          "path": "internal/engine.go",
+          "language": "Go",
+          "lines": 900,
+          "functions": 22,
+          "branch_points": 300,
+          "max_nesting": 9,
+          "estimated_complexity": 42,
+          "max_function_complexity": 61,
+          "level": "very_high",
+          "density": 4.67
+        },
+        {
+          "path": "internal/report.go",
+          "language": "Go",
+          "lines": 400,
+          "functions": 14,
+          "branch_points": 60,
+          "max_nesting": 4,
+          "estimated_complexity": 5.3,
+          "max_function_complexity": 0,
+          "level": "low",
+          "density": 1.33
+        }
+      ]
+    }
+  },
+  "git": {
+    "is_repository": true,
+    "branch": "main",
+    "head_commit": "abc123def456",
+    "total_commits": 100,
+    "window_days": 90,
+    "window_commits": 20,
+    "authors": 3,
+    "bus_factor": 1,
+    "first_commit_at": "2024-06-01T00:00:00Z",
+    "last_commit_at": "2026-01-02T03:00:00Z",
+    "days_since_commit": 1,
+    "commits_per_week": 1.6,
+    "lines_added": 500,
+    "lines_deleted": 120,
+    "top_author_share": 0,
+    "churn": [
+      {
+        "path": "internal/engine.go",
+        "commits": 5,
+        "added": 100,
+        "deleted": 20,
+        "score": 125
+      }
+    ],
+    "churn_hotspot_rate": 0.4,
+    "churn_files": 15,
+    "churn_concentration": 0.2
+  },
+  "dependencies": {
+    "detected": true,
+    "ecosystems": [
+      {
+        "name": "gomod",
+        "manifest": "go.mod",
+        "lockfile": "go.sum",
+        "lockfile_format": "go-sum",
+        "total": 6,
+        "direct": 4,
+        "dev": 2,
+        "indirect": 1,
+        "transitive": 48,
+        "packages": [
+          "example.com/x"
+        ],
+        "detected": true,
+        "drift": false,
+        "lockfile_stale": false
+      },
+      {
+        "name": "npm",
+        "manifest": "package.json",
+        "total": 4,
+        "direct": 3,
+        "dev": 1,
+        "indirect": 0,
+        "transitive": 0,
+        "packages": [
+          "react"
+        ],
+        "detected": true,
+        "drift": true,
+        "drift_reason": "package.json declares 3 direct dependencies with no lockfile",
+        "lockfile_stale": false
+      }
+    ],
+    "total": 6,
+    "direct": 4,
+    "dev": 2,
+    "indirect": 1,
+    "transitive": 48,
+    "locked": true,
+    "drift": false
+  },
+  "health": {
+    "score": 71.5,
+    "grade": "C",
+    "summary": "Overall adequate.",
+    "metrics": [
+      {
+        "key": "code",
+        "label": "Code health",
+        "value": 60,
+        "display": "60 LOC/file across 40 files",
+        "score": 55,
+        "weight": 0.4,
+        "detail": "size 40, hotspots 20% of lines, cohesion 50",
+        "applicable": true
+      },
+      {
+        "key": "dependency",
+        "label": "Dependency health",
+        "value": 7,
+        "display": "7 direct / 7 total",
+        "score": 90,
+        "weight": 0.3,
+        "detail": "count 86, reproducibility 80, spread 50",
+        "applicable": true
+      },
+      {
+        "key": "git",
+        "label": "Maintainability (Git)",
+        "value": 1.6,
+        "display": "1.6 commits/week",
+        "score": 75,
+        "weight": 0.3,
+        "detail": "cadence 20, freshness 100, churn 83, bus factor 85",
+        "applicable": true
+      }
+    ],
+    "components": 3
+  },
+  "findings": [
+    {
+      "severity": "high",
+      "category": "dependency",
+      "title": "Missing lockfile for package.json",
+      "detail": "no lockfile",
+      "subject": "package.json"
+    },
+    {
+      "severity": "medium",
+      "category": "testing",
+      "title": "No test files detected",
+      "detail": "none"
+    }
+  ],
+  "risks": [
+    {
+      "id": "code.hotspot.internal/engine.go",
+      "severity": "critical",
+      "category": "code",
+      "title": "Confirmed hotspot",
+      "detail": "Hotspot detected in internal/engine.go.",
+      "subject": "internal/engine.go",
+      "impact": 9.4,
+      "evidence": [
+        {
+          "kind": "file",
+          "label": "LOC",
+          "detail": "900 code lines",
+          "subject": "internal/engine.go",
+          "value": 900
+        },
+        {
+          "kind": "metric",
+          "label": "Churn",
+          "detail": "220 lines modified in the git window",
+          "subject": "internal/engine.go",
+          "value": 220
+        },
+        {
+          "kind": "metric",
+          "label": "Complexity",
+          "detail": "42 estimated cyclomatic complexity",
+          "subject": "internal/engine.go",
+          "value": 42
+        }
+      ],
+      "recommendation": "Split internal/engine.go until no unit exceeds the size threshold."
+    },
+    {
+      "id": "dependency.drift.npm",
+      "severity": "high",
+      "category": "dependency",
+      "title": "Missing lockfile",
+      "detail": "Missing lockfile for package.json.",
+      "subject": "package.json",
+      "impact": 4.5,
+      "evidence": [
+        {
+          "kind": "lockfile",
+          "label": "Lockfile",
+          "detail": "no lockfile found",
+          "subject": "package.json",
+          "value": 0
+        }
+      ]
+    }
+  ],
+  "workspace": {
+    "kind": "pnpm",
+    "manifest": "pnpm-workspace.yaml",
+    "packages": [
+      {
+        "path": "packages/core",
+        "manifest": "packages/core/package.json",
+        "name": "@acme/core",
+        "ecosystem": "npm",
+        "health": {
+          "score": 84,
+          "grade": "B",
+          "summary": "",
+          "metrics": null,
+          "components": 0
+        },
+        "files": 20,
+        "source_files": 16,
+        "test_files": 4,
+        "code_lines": 3000,
+        "test_file_ratio": 0.2,
+        "hotspots": [],
+        "risks": [],
+        "dependencies": {
+          "detected": false,
+          "ecosystems": [],
+          "total": 0,
+          "direct": 0,
+          "dev": 0,
+          "indirect": 0,
+          "transitive": 0,
+          "locked": false,
+          "drift": false
+        },
+        "git_applicable": false,
+        "attribution": [
+          "code.hotspot.core"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,173 @@
+# Release configuration for Lensyxe.
+#
+# The pipeline is deliberately small: prepare, cross-compile, archive,
+# checksum, publish. Anything larger would be machinery with no user behind it.
+#
+# The dashboard is embedded in every binary, so scripts/prepare-release.sh must
+# run before the Go build; it copies the static export into the directory
+# //go:embed reads and refuses to continue if the tree is untidy, unformatted,
+# or fails vet. A release that rewrites its own source would mean the tag
+# describes something other than the code that produced it.
+#
+# Locally:  goreleaser release --snapshot --clean
+version: 2
+
+project_name: lensyxe
+
+# ---------------------------------------------------------------- before hooks
+#
+# Hooks are plain command strings: goreleaser runs each through the system
+# shell. Anything longer than one line lives in the script, because a hook that
+# cannot express a conditional or an exit code is not a verification step.
+
+before:
+  hooks:
+    - bash scripts/prepare-release.sh
+
+# -------------------------------------------------------------------- build
+
+builds:
+  - id: lensyxe
+    main: ./cmd/lensyxe
+    binary: lensyxe
+    # Pure Go with no cgo. modernc.org/sqlite was chosen over mattn/go-sqlite3
+    # specifically so cross-compiling to darwin/arm64 and linux/arm64 needs no C
+    # toolchain on the runner. CGO_ENABLED=0 is therefore a hard requirement of
+    # this matrix rather than a size optimization.
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # -trimpath removes local filesystem paths from the binary, which is what
+    # makes two builds of the same commit byte-identical and therefore
+    # comparable against a published checksum.
+    flags:
+      - -trimpath
+    # -s -w strips the symbol table and DWARF data. Neither is useful in a
+    # shipped binary and together they remove roughly a third of its size.
+    #
+    # The -X symbols must match cmd/lensyxe/version.go exactly: the linker
+    # resolves them by name and silently does nothing when they do not match, so
+    # a release could report "dev" while claiming to be v1.0.0. The names are
+    # verified by scripts/prepare-release.sh rather than trusted.
+    ldflags:
+      - -s -w
+      - -X main.Version={{ .Version }}
+      - -X main.Commit={{ .Commit }}
+      - -X main.Date={{ .Date }}
+      - -X main.BuiltBy=goreleaser
+
+# ------------------------------------------------------------------ archives
+
+archives:
+  - id: lensyxe
+    # tar.gz everywhere except Windows, which gets a zip: a zip is the only
+    # archive a Windows user can open without installing anything first.
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    # The name mirrors `uname` conventions so a Linux user can recognize
+    # x86_64 and an arm64 host without looking it up.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{ .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+    # The files travel with the binary so an archive is self-describing: a user
+    # who unpacks it can read what the tool is and what the license is without
+    # going back to the repository.
+    files:
+      - README.md
+      - LICENSE
+      - .lensyxe.yml
+      - src: action/action.yml
+        dst: lensyxe-action.yml
+
+# ------------------------------------------------------------------ checksum
+
+checksum:
+  name_template: checksums.txt
+  # One combined file rather than per-artifact sidecars: verifying a download
+  # should not require locating a second file that might not have arrived.
+  algorithm: sha256
+
+# ------------------------------------------------------------------ snapshot
+
+snapshot:
+  # A snapshot must never collide with a real version string, or a draft build
+  # could be mistaken for the release it was testing.
+  version_template: "{{ incpatch .Version }}-snapshot"
+
+# ------------------------------------------------------------------- release
+
+release:
+  prerelease: auto
+  draft: false
+  replace_existing_draft: true
+  # The action spec ships alongside the binaries so a consumer can pin the
+  # Action to the release they downloaded rather than tracking a moving ref.
+  # Each entry is a glob only: goreleaser's extra_files has no rename field, so
+  # the destination keeps its source name.
+  extra_files:
+    - glob: checksums.txt
+    - glob: action/action.yml
+  footer: |
+    ## Verifying a download
+
+    Every release includes a `checksums.txt` with the SHA-256 of each artifact.
+    Verify before running anything:
+
+    ```
+    sha256sum -c checksums.txt
+    ```
+
+    Lensyxe is local-first: analysis makes no outbound request and the tool has
+    no telemetry. If a binary you downloaded does anything else, it is not
+    Lensyxe.
+
+    ## Provenance
+
+    Each binary was cross-compiled by the release workflow in this repository.
+    `lensyxe version` prints the commit, the build date, and the Go toolchain
+    it was produced with, so a downloaded binary can be traced to its source.
+
+# ----------------------------------------------------------------- changelog
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      # Changelog noise: these commits do not change what a user sees or does.
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "^build:"
+      - "^Merge pull request"
+      - "^Merge branch"
+      - "typo"
+
+# ------------------------------------------------------------------- metadata
+
+metadata:
+  mod_timestamp: "{{ .CommitTimestamp }}"
+
+# -------------------------------------------------------------------- nfpms
+
+# No .deb or .rpm. A native package would have to be maintained alongside the
+# binary, and a stale package is worse for this tool than no package: users would
+# install an old version from a repository instead of downloading a checksummed
+# release.
+
+# ------------------------------------------------------------------- sboms
+
+# No SBOM artifact. A generated SBOM that nobody verifies adds a maintenance
+# surface without changing what a consumer can actually check; the checksum plus
+# the embedded commit in `lensyxe version` cover the same ground today.

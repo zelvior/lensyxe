@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      Roboto,
+      sans-serif;
+  }
+
+  /* Tabular figures keep score columns from shifting as values change. */
+  table,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg border border-slate-800 bg-slate-900/40 p-5;
+  }
+
+  .card-title {
+    @apply mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500;
+  }
+}
