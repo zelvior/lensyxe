@@ -3,6 +3,7 @@ package watch
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -305,6 +306,38 @@ func newTestWatcherDebounced(
 	return w, dir, log
 }
 
+// runExitTimeout bounds how long a test waits for the Run loop to return.
+//
+// Generous, because the loop polls a filesystem watcher and an analysis can
+// legitimately take a while under load. The point is not to fail a slow test;
+// it is to fail a *hung* one.
+const runExitTimeout = 30 * time.Second
+
+// waitRunExit waits for Run to return, and fails the test if it does not.
+//
+// Every call site used to be a bare `<-done`, which is an unbounded wait. If
+// Run failed to return, the test hung until the package timeout ten minutes
+// later and the output named no test at all — the failure looked like a slow
+// suite rather than a stuck goroutine.
+//
+// This package is the most exposed to that of anything in the repository: it
+// drives a real filesystem watcher with real debounce windows, so it is exactly
+// where contention shows up. A contended run during development produced a
+// 600-second package timeout here with every test up to that point passing.
+func waitRunExit(t *testing.T, done <-chan error, what string) {
+	t.Helper()
+	select {
+	case err := <-done:
+		// Cancellation is how every one of these tests ends, so a
+		// context error is the expected result rather than a failure.
+		if err != nil && !errors.Is(err, context.Canceled) {
+			t.Errorf("%s: Run returned %v", what, err)
+		}
+	case <-time.After(runExitTimeout):
+		t.Fatalf("%s: Run did not return within %s", what, runExitTimeout)
+	}
+}
+
 // waitFor polls until cond holds or the deadline passes.
 func waitFor(t *testing.T, timeout time.Duration, cond func() bool) bool {
 	t.Helper()
@@ -353,7 +386,7 @@ func TestRunEmitsReadyAndInitialAnalysis(t *testing.T) {
 					t.Errorf("missing initial log line, got: %s", log.String())
 				}
 				cancel()
-				<-done
+				waitRunExit(t, done, "test")
 				return
 			}
 		case <-deadline:
@@ -415,7 +448,7 @@ func TestRunReactsToFileChange(t *testing.T) {
 			}
 		case <-time.After(2 * time.Second):
 			cancel()
-			<-done
+			waitRunExit(t, done, "test")
 			t.Fatalf("no change event; log: %s", log.String())
 		}
 	}
@@ -515,7 +548,7 @@ func TestRunDebouncesBursts(t *testing.T) {
 			burstDuration.Round(time.Millisecond), debounce, total-baseline)
 	}
 	cancel()
-	<-done
+	waitRunExit(t, done, "test")
 }
 
 func TestRunIgnoresIrrelevantExtensions(t *testing.T) {
@@ -555,7 +588,7 @@ func TestRunIgnoresIrrelevantExtensions(t *testing.T) {
 		t.Errorf("a .png write triggered %d analyses, want 0", total-baseline)
 	}
 	cancel()
-	<-done
+	waitRunExit(t, done, "test")
 }
 
 func TestRunReportsAnalyzeErrors(t *testing.T) {
@@ -580,7 +613,7 @@ func TestRunReportsAnalyzeErrors(t *testing.T) {
 			}
 		case <-deadline:
 			cancel()
-			<-done
+			waitRunExit(t, done, "test")
 			t.Fatalf("no error event; log: %s", log.String())
 		}
 	}
@@ -595,7 +628,7 @@ func TestRunReportsAnalyzeErrors(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	cancel()
-	<-done
+	waitRunExit(t, done, "test")
 }
 
 func TestRunOnSnapshotFailureIsReported(t *testing.T) {
@@ -628,12 +661,12 @@ func TestRunOnSnapshotFailureIsReported(t *testing.T) {
 			}
 		case <-deadline:
 			cancel()
-			<-done
+			waitRunExit(t, done, "test")
 			t.Fatal("no error event for a failing OnSnapshot")
 		}
 	}
 	cancel()
-	<-done
+	waitRunExit(t, done, "test")
 }
 
 func TestRunStopsCleanlyOnContextCancel(t *testing.T) {

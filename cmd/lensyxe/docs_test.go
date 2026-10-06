@@ -81,7 +81,14 @@ func TestDocInternalLinksResolve(t *testing.T) {
 	linkRe := regexp.MustCompile(`\]\(([^)#\s]+)(?:#[^)]*)?\)`)
 	anchorRe := regexp.MustCompile(`^\#`)
 
-	for _, file := range allDocFiles(t) {
+	// README is included even though it is not under docs/, because it is the
+	// page every reader lands on first and it carries the documentation index,
+	// the badges, and the diagram references. A broken link there is the most
+	// visible kind of documentation defect, and leaving it unchecked while
+	// policing docs/ would be an odd place to draw the line.
+	files := append(allDocFiles(t), filepath.Join("..", "..", "README.md"))
+
+	for _, file := range files {
 		body := readDoc(t, file)
 		for _, m := range linkRe.FindAllStringSubmatch(body, -1) {
 			target := m[1]
@@ -100,10 +107,60 @@ func TestDocInternalLinksResolve(t *testing.T) {
 	}
 }
 
+// Image references in the README must resolve too.
+//
+// A markdown image link matches the same [](...) shape as an ordinary link, but
+// a broken src renders as a broken-image icon rather than a visibly wrong page,
+// so it is easy to ship by accident.
+func TestReadmeImagesExist(t *testing.T) {
+	readme := readDoc(t, filepath.Join("..", "..", "README.md"))
+
+	imgRe := regexp.MustCompile(`<img[^>]+src="([^"]+)"`)
+	mdRe := regexp.MustCompile(`!\[[^\]]*\]\(([^)\s]+)\)`)
+
+	for _, re := range []*regexp.Regexp{imgRe, mdRe} {
+		for _, m := range re.FindAllStringSubmatch(readme, -1) {
+			src := m[1]
+			if strings.HasPrefix(src, "http://") ||
+				strings.HasPrefix(src, "https://") ||
+				strings.HasPrefix(src, "data:") {
+				continue
+			}
+			// The banner may legitimately appear more than once: it is the
+			// hero image, and is also linked from the documentation table.
+			if _, err := os.Stat(filepath.Join("..", "..", filepath.FromSlash(src))); err != nil {
+				t.Errorf("README references image %q, which does not exist", src)
+			}
+		}
+	}
+}
+
 // headingAnchors extracts the GitHub-style slugs for every ATX heading.
 func headingAnchors(body string) map[string]bool {
 	out := map[string]bool{}
+	inFence := false
+
 	for _, line := range strings.Split(body, "\n") {
+		// Fenced code blocks are skipped.
+		//
+		// A `#` comment inside a ```bash block is not a heading, but treating
+		// it as one produces a phantom anchor. That matters because this
+		// function decides which links are valid: without the fence check, a
+		// link to an anchor that GitHub does not generate can pass because
+		// some unrelated shell comment happened to slugify to the same string.
+		// The test would then report the documentation as correct while a
+		// reader clicking the link lands on the top of the page.
+		//
+		// The fence marker may be indented, and may carry an info string.
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
+			inFence = !inFence
+			continue
+		}
+		if inFence {
+			continue
+		}
+
 		if !strings.HasPrefix(line, "#") {
 			continue
 		}
@@ -337,6 +394,63 @@ func TestActionGuideCoversEveryInput(t *testing.T) {
 	}
 	if seen == 0 {
 		t.Fatal("no action inputs were parsed; the regex is wrong")
+	}
+}
+
+// The VS Code guide must not describe a CLI surface that does not exist.
+//
+// The extension guide documents the flags and subcommands it passes to the
+// binary. Those are the whole contract between the two halves of the project,
+// and the extension is TypeScript that the Go build never sees, so nothing else
+// would notice the CLI dropping one.
+func TestVSCodeGuideOnlyReferencesRealFlags(t *testing.T) {
+	guide := readDoc(t, filepath.Join(docsDir, "VSCODE_EXTENSION.md"))
+	known := knownFlags(t)
+
+	// A backticked flag. Requires a word character after the leading --, so `--`
+	// on its own and any punctuation-terminated fragment do not produce a hit.
+	refRe := regexp.MustCompile("`(--[a-z][a-z0-9-]*)`")
+
+	seen := 0
+	for _, m := range refRe.FindAllStringSubmatch(guide, -1) {
+		name := strings.TrimPrefix(m[1], "--")
+		seen++
+		if !known[name] {
+			t.Errorf("VSCODE_EXTENSION.md references %s, which no lensyxe command accepts", m[1])
+		}
+	}
+	if seen == 0 {
+		t.Fatal("no CLI flags parsed from VSCODE_EXTENSION.md; the regex is wrong")
+	}
+}
+
+// The subcommands the extension invokes must exist.
+func TestVSCodeGuideOnlyReferencesRealCommands(t *testing.T) {
+	guide := readDoc(t, filepath.Join(docsDir, "VSCODE_EXTENSION.md"))
+
+	known := map[string]bool{}
+	var walk func(*cobra.Command)
+	walk = func(cmd *cobra.Command) {
+		known[cmd.Name()] = true
+		for _, sub := range cmd.Commands() {
+			walk(sub)
+		}
+	}
+	walk(newRootCmd(&app{}))
+
+	// `lensyxe <word>`, in the forms the guide actually uses.
+	cmdRe := regexp.MustCompile("`lensyxe ([a-z]+)")
+
+	seen := 0
+	for _, m := range cmdRe.FindAllStringSubmatch(guide, -1) {
+		name := m[1]
+		seen++
+		if !known[name] {
+			t.Errorf("VSCODE_EXTENSION.md runs `lensyxe %s`, which is not a command", name)
+		}
+	}
+	if seen == 0 {
+		t.Fatal("no subcommands parsed from VSCODE_EXTENSION.md; the regex is wrong")
 	}
 }
 

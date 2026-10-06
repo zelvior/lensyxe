@@ -88,16 +88,6 @@ func goSource(pkg string, seed, lines int) string {
 	return b.String()
 }
 
-// build materializes the fixture in a temporary directory owned by one test.
-//
-// Most callers want buildAt against the shared root instead; this exists for
-// the one-off cases that genuinely want isolation.
-func (f fixture) build(t testing.TB) string {
-	t.Helper()
-	dir := t.TempDir()
-	return f.buildAt(t, dir)
-}
-
 // buildAt materializes the fixture in dir.
 func (f fixture) buildAt(t testing.TB, dir string) string {
 	t.Helper()

@@ -647,6 +647,15 @@ func TestNoPersistWritesNoDatabase(t *testing.T) {
 	dir := t.TempDir()
 	copyTree(t, filepath.Join("..", "examples", "healthy-go"), dir)
 
+	// The assertion below is only meaningful if the target starts empty. A
+	// database that arrived with the fixture would make this fail for a reason
+	// that has nothing to do with --no-persist, and the failure message would
+	// point at the flag rather than at the polluted fixture.
+	if _, err := os.Stat(filepath.Join(dir, ".lensyxe")); err == nil {
+		t.Fatal("the copied fixture already contains .lensyxe; " +
+			"the example directory has been polluted by an analysis run")
+	}
+
 	res := runCLI(t, dir, "analyze", ".", "--no-persist")
 	if res.Code != ExitOK {
 		t.Fatalf("analyze exited %d\n%s", res.Code, res.Combined())
@@ -863,8 +872,17 @@ func writeConfig(t testing.TB, dir, body string) {
 
 // copyTree copies src into dst.
 //
-// It is used instead of exec'ing a shell copy so the suite runs on Windows
-// without a dependency on cp or robocopy.
+// Analysis artifacts are skipped. A fixture is source, and a fixture that
+// carries a history database is not the fixture it claims to be: the database
+// would be copied into every test's temporary directory, and a test asserting
+// that --no-persist writes nothing would then fail on a database that arrived
+// before the run started.
+//
+// That is not hypothetical. A `lensyxe analyze examples/healthy-go` run during
+// development left `.lensyxe/history.db` inside the example, and the next full
+// suite failed in exactly that way. The failure was correct and the diagnosis
+// was the polluted fixture; the guard below stops the fixture being polluted in
+// the first place by anything this suite copies.
 func copyTree(t testing.TB, src, dst string) {
 	t.Helper()
 
@@ -876,6 +894,15 @@ func copyTree(t testing.TB, src, dst string) {
 		if err != nil {
 			return err
 		}
+
+		// Skip at any depth: a nested example could have its own.
+		if info.IsDir() {
+			switch info.Name() {
+			case ".lensyxe", ".openlens":
+				return filepath.SkipDir
+			}
+		}
+
 		target := filepath.Join(dst, rel)
 
 		if info.IsDir() {

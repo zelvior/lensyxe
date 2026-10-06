@@ -568,9 +568,7 @@ func TestCompareRejectsUnknownFormat(t *testing.T) {
 // End-to-end compare against a real repository, exercising the archive-export
 // path and both renderers.
 func TestCompareEndToEnd(t *testing.T) {
-	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git not installed")
-	}
+	hasGit(t)
 	repo := initRepo(t)
 
 	writeIn(t, repo, "main.go", "package main\n\nfunc main() {}\n")
