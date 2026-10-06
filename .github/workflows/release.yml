@@ -246,13 +246,12 @@ jobs:
           # Regenerate and require it to match what is committed, so the icon
           # cannot drift from its generator between releases.
           #
-          # The paths are repo-root relative on purpose. This step runs with
-          # working-directory ide/vscode, and a git diff against a
-          # subdirectory-relative path silently compares the committed icon with
-          # itself -- which is how the first release attempt "passed" this check
-          # while the generator was writing somewhere else entirely.
+          # Compared from the repository root. git resolves a pathspec against
+          # the current directory, and this step runs in ide/vscode, so a
+          # repo-root path here matches nothing and `git diff` reports no
+          # changes whether or not the icon actually drifted.
           npm run icon
-          if ! git diff --exit-code -- ide/vscode/media/icon.png; then
+          if ! git -C "$GITHUB_WORKSPACE" diff --exit-code -- ide/vscode/media/icon.png; then
             echo "::error::ide/vscode/media/icon.png does not match its generator"
             exit 1
           fi

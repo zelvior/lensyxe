@@ -221,13 +221,69 @@ check "windows artifact uses zip" \
 # spec is a 404 at install time, which is the worst way to find out.
 
 if [ -f .goreleaser.yaml ]; then
-  tpl="$(sed -n '/name_template:/,/^    files:/p' .goreleaser.yaml | sed -n '2,$p' | head -n 12)"
+  # Extract the archives name_template and stop at the next sibling key.
+  #
+  # The previous extraction ran from `name_template:` to `files:`, which assumed
+  # the template occupied several lines and that `files:` followed it. Writing
+  # the template on one line -- which is what stopped a folded YAML block from
+  # injecting a space into every archive name -- made that extraction read the
+  # comments instead of the template, and this check failed for a config that was
+  # correct.
+  #
+  # Stopping at any line indented exactly four spaces followed by a letter ends
+  # the block whatever follows it, so this stays correct either way.
+  tpl="$(awk '
+    /^archives:/ { in_archives = 1 }
+    in_archives && /name_template:/ { grab = 1; sub(/^[^:]*: */, ""); print; next }
+    grab {
+      # A sibling key, or a comment at the same indent, ends the template. The
+      # comment case matters: the template is followed by explanatory comments
+      # indented to the same level, and reading those as part of the value is
+      # what made this check report a correct config as broken.
+      if ($0 ~ /^    [A-Za-z_-]+:/) { exit }
+      if ($0 ~ /^    #/) { exit }
+      if ($0 ~ /^    /) { sub(/^ +/, ""); print; next }
+      exit
+    }
+  ' .goreleaser.yaml)"
+
   for token in '{{ .ProjectName }}' '{{ .Version }}' 'title .Os' 'amd64'; do
     case "$tpl" in
       *"$token"*) pass=$((pass + 1)); printf '  ok    goreleaser template contains %s\n' "$token" ;;
       *)          fail=$((fail + 1)); printf '  FAIL  goreleaser template is missing %s\n' "$token" ;;
     esac
   done
+
+  # Whitespace in the rendered name is what breaks the download URL.
+  #
+  # Template actions are stripped first, because spaces inside them are normal:
+  # `{{ if eq .Arch "amd64" }}` has two, and their presence says nothing about
+  # the name that gets rendered. Only whitespace outside an action becomes part of
+  # the filename, and that is what this looks for.
+  #
+  # cmd/lensyxe's TestInstallerMatchesReleaseArtifactNames renders the template
+  # for all six targets and compares the result against install.sh. That is the
+  # authoritative check; this is the cheap half that runs without a Go toolchain.
+  literal="$(printf '%s' "$tpl" | sed 's/{{[^}]*}}//g')"
+  # Newline counts as whitespace, and it has to be tested with a bash pattern
+  # rather than grep: grep is line-based, so it treats a newline as a record
+  # separator and never sees it as content, which made a folded template pass
+  # this check by containing newlines instead of spaces.
+  #
+  # YAML folds a newline inside a `>-` block into a space when it parses, so the
+  # folded form is exactly the failure that put a space into every published
+  # archive name.
+  case "$literal" in
+    *[[:space:]]*)
+      fail=$((fail + 1))
+      printf '  FAIL  goreleaser name_template has whitespace outside a template action\n'
+      ;;
+    *)
+      pass=$((pass + 1))
+      printf '  ok    goreleaser name_template has no whitespace outside template actions\n'
+      ;;
+  esac
+
   check "project_name in goreleaser is lensyxe" "lensyxe" \
     "$(sed -n 's/^project_name: *//p' .goreleaser.yaml | head -n 1)"
 fi
