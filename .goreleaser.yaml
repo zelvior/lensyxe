@@ -116,7 +116,11 @@ release:
   # Each entry is a glob only: goreleaser's extra_files has no rename field, so
   # the destination keeps its source name.
   extra_files:
-    - glob: checksums.txt
+    # These globs are resolved from the project root, not from the dist
+    # directory. goreleaser writes the checksum file into dist/ itself, so the
+    # bare name "checksums.txt" matched nothing and aborted the publish step
+    # after all six binaries had already been built and archived.
+    - glob: dist/checksums.txt
     - glob: action/action.yml
     # The editor extension, so a VS Code user downloads a finished package rather
     # than needing Node, npm, and a Go toolchain to build one. Built by the
