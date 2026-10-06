@@ -91,6 +91,50 @@ package that knows the sequence; every other package is independently testable.
 | `internal/compare` | Two-revision diff | Recompute a score from scratch |
 | `internal/gates` | Threshold evaluation | Decide what is healthy |
 | `pkg/models` | The on-disk schema | Contain logic |
+| `ide/vscode` | The VS Code extension, in TypeScript | Score anything or duplicate a threshold |
+| `action` | GitHub Action metadata | Contain logic the CLI should own |
+
+### The extension is a viewer, not a second implementation
+
+`ide/vscode` contains no analysis. It runs `lensyxe analyze --format json` and
+renders the snapshot, so the score in its status bar cannot disagree with the
+score in a terminal.
+
+Two consequences for contributors:
+
+- The dimensions come from `health.metrics` in the snapshot, never from a copy of
+  the list in the extension. Adding a scored dimension makes it appear in the
+  sidebar without touching the TypeScript.
+- An unmeasured dimension is rendered as `not measured`, never as `0`. Drawing it
+  as a zero would invent a measurement and drag the apparent score down for a
+  blind spot. See [docs/SCORING_SPEC.md](docs/SCORING_SPEC.md#what-is-not-measured).
+
+### Why `ide/vscode` carries a go.mod
+
+It is a module boundary, not a Go module, and there is no Go in that directory.
+
+Without it, `go build ./...` and `go test ./...` descend into `node_modules/`, and
+at least one popular npm dependency ships Go source inside its package. The
+Lensyxe module would then compile a transitive JavaScript dependency's code — so
+an unrelated npm update, or a Go version bump, could break the project's build for
+a reason with nothing to do with Lensyxe.
+
+The boundary stops the parent module at that directory. It has no `require` block
+and no dependency on the parent module.
+
+To work on the extension:
+
+```bash
+cd ide/vscode
+npm install
+npm run compile      # tsc, no errors expected
+npm run smoke -- ../lensyxe ../examples/risky-go
+npm run package
+```
+
+`npm run smoke` drives the compiled CLI client against a real binary. The client
+imports nothing from `vscode` precisely so it can be exercised this way — which
+is how the abort-classification bug was found.
 
 ### Invariants
 
@@ -361,10 +405,24 @@ test(golden): cover the empty-repository rendering
 
 ### CI gates
 
-Every pull request runs `gofmt`, `go vet`, the full test suite, the installer
-assertions, and `goreleaser check`. Release builds additionally run
-`scripts/prepare-release.sh`. A red CI run is the reviewer's first stop, so push
-green.
+Seven jobs run on every pull request:
+
+| Job | What it covers |
+| :--- | :--- |
+| `test` | The suite on Linux, macOS, and Windows. |
+| `race` | The race detector, which a single-platform run can miss. |
+| `cross` | Compilation for the six release targets. |
+| `lint` | `golangci-lint`, pinned to the version `.golangci.yml` was verified against. |
+| `coverage` | Product-code coverage via `-coverpkg`. |
+| `release-config` | `goreleaser check`. |
+| `repo` | The workflow, issue-form, YAML, and extension-manifest validators. |
+
+The `repo` job exists because none of that configuration is read by the Go build.
+A malformed workflow simply does not run; an issue form with a bad schema renders
+blank. Both fail quietly, so something has to check them deliberately.
+
+Release builds additionally run `scripts/prepare-release.sh`. A red CI run is the
+reviewer's first stop, so push green.
 
 ---
 
