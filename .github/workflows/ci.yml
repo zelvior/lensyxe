@@ -319,6 +319,12 @@ jobs:
       - name: Validate repository YAML
         run: go run scripts/check-repo-yaml.go
 
+      # The site is plain files that nothing else in this repository reads, so a
+      # broken link or a missing asset is invisible to the Go build, the linter,
+      # and the extension tests.
+      - name: Validate the site
+        run: go run scripts/check-web.go
+
       # Build the extension BEFORE validating its manifest.
       #
       # The manifest points at out/extension.js, which is generated and gitignored,

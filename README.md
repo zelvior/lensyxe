@@ -417,11 +417,17 @@ worse than one that measures less.
 | [SECURITY.md](SECURITY.md) | Local-first guarantees and how to report a vulnerability. |
 | [CHANGELOG.md](CHANGELOG.md) | What shipped. |
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Contributor Covenant 2.1. |
+| [web/](web/) | The marketing and setup site. Static, no build step, deploys to Vercel. |
 
 The documentation is tested. `cmd/lensyxe/docs_test.go` builds the real command
 tree and asserts that every flag exists, is documented, and that the config keys,
 scoring constants, and Action inputs quoted in these files match the source. If
 you change one of those, the tests will tell you which page to update.
+
+The site in [`web/`](web/) is checked by `scripts/check-web.go`, which resolves
+every local reference and heading anchor, restricts off-site links to this
+project's own URLs, and asserts `vercel.json` declares the security headers the
+site relies on.
 
 ---
 
