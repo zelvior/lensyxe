@@ -10,6 +10,7 @@ help output is correct and this file is stale.
 - [Exit codes](#exit-codes)
 - [`lensyxe analyze`](#lensyxe-analyze)
 - [`lensyxe status`](#lensyxe-status)
+- [`lensyxe setup`](#lensyxe-setup)
 - [`lensyxe compare`](#lensyxe-compare)
 - [`lensyxe history`](#lensyxe-history)
 - [`lensyxe watch`](#lensyxe-watch)
@@ -148,6 +149,70 @@ the score in `analyze` always agree.
 
 `status` does **not** record a run to the history database. Checking whether you
 are healthy should not itself become an entry in your health history.
+
+## `lensyxe setup`
+
+Propose a `.lensyxe.yml` derived from a measurement of the repository.
+
+```
+lensyxe setup [path] [flags]
+```
+
+| Flag | Default | Description |
+| :--- | :--- | :--- |
+| `--write` | `false` | Write the proposal to `.lensyxe.yml`. |
+| `--force` | `false` | Replace an existing `.lensyxe.yml`. The old file is overwritten, not merged. |
+
+The documented configuration file is a template: it lists every key with its
+default. A template cannot know that this repository has a Rust `target`
+directory, that its history is one day deep, or how long its own scan takes.
+`setup` runs the analysis and proposes values from what it just measured:
+
+- **`ignore_dirs`** — the build directories that are actually present. `node_modules`
+  appears in both the always-pruned list and the detected-toolchain list, so the
+  result is deduplicated rather than emitted twice.
+- **`git_window_days`** — scaled to the real age of the history. A ninety-day window on a
+  repository a week old reports a bus factor of one and near-zero cadence
+  because nobody has had time to do anything, and both are reported as findings.
+- **`timeout_seconds`** — four times the measured scan time, rounded up, never below the 60s
+  default. Omitted entirely when the scan duration is zero, because a timeout
+  derived from no measurement is a number derived from nothing.
+- **`detect_workspace`** — only when a workspace layout was actually found.
+
+### What it will not do
+
+**It does not propose `hotspot_threshold`.** That value changes the code health
+score. A wizard that quietly moves your score is worse than one that leaves it
+alone, so the command reports how many files exceed the current threshold and
+lets you decide.
+
+**It does not put the CI thresholds in the config file.** `min_health_score`,
+`require_tests`, and `fail_on_drift` are not configuration keys — the real
+gates are the `--fail-under-health`, `--fail-on-critical-risk`, and
+`--fail-on-test-ratio-drop` flags on `analyze`. Writing them into a config file
+would produce a file that looks authoritative and is silently ignored on every
+line. They are printed as a command line instead, with the threshold placed
+below the current score so it catches regressions rather than failing on the
+next unrelated commit.
+
+**It does not enable the explanation layer.** That needs a key you supply, it is
+the only outbound request this tool can make, and no number it proposes depends
+on it.
+
+A section titled `NOT CHANGED, AND WHY` lists everything the command declined to
+set, with the reason. A proposal that silently omits a key reads as an oversight
+rather than as a decision.
+
+### Safety
+
+Nothing is written without `--write`. An existing `.lensyxe.yml` is never
+replaced without `--force` as well, and it is overwritten rather than merged —
+the generated keys are a proposal, not a patch to your file. Keys the proposal
+does not mention keep their built-in defaults, so deleting a line reverts that
+one setting.
+
+Rendering is byte-identical across runs on an unchanged repository, so
+re-running it does not produce a diff.
 
 ## Git-style aliases
 

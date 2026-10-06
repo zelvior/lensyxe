@@ -15,6 +15,36 @@ workflow does that, so the claim was removed rather than left standing.
 
 ## [Unreleased]
 
+### Added
+
+- **`lensyxe setup`** — proposes a `.lensyxe.yml` from a measurement of the
+  repository rather than from the documented template, which cannot know what is
+  actually present. `ignore_dirs` lists only build directories that exist,
+  `git_window_days` is scaled to the real age of the history, and
+  `timeout_seconds` is derived from the observed scan duration and never
+  tightened below the shipped default.
+- **`lensyxe status`** — the same analysis `analyze` performs, rendered in a few
+  lines: score, three dimensions, risk count, and the weakest dimension. It does
+  not record a run to the history database.
+- **Git-style aliases** — `an`, `st`, `log`/`lg`, `diff`/`df`, `w`, `ui`. Aliases
+  rather than duplicate commands, so one implementation and one documented
+  behaviour.
+
+`setup` deliberately declines to set three things, and says so in its output
+rather than omitting them silently:
+
+- `hotspot_threshold`, because it changes the code health score.
+- The CI thresholds in the config file, because `min_health_score`,
+  `require_tests`, and `fail_on_drift` are not configuration keys. The real
+  gates are the `--fail-under-health`, `--fail-on-critical-risk`, and
+  `--fail-on-test-ratio-drop` flags on `analyze`, and they are printed as a
+  command line instead. Writing them into a config file would produce a file
+  that looks authoritative and is silently ignored on every line in it.
+- The AI explanation layer, which stays off.
+
+Nothing is written without `--write`, an existing file is never replaced without
+`--force`, and rendering is byte-identical across runs.
+
 ## [1.0.0-rc1] - 2026-10-06
 
 The first public release. It is a release candidate because it has never been

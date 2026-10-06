@@ -59,21 +59,33 @@ RISKS (2)
 # What is the state of this repository?
 lensyxe analyze .
 
+# Just the headline, in a few lines. Same analysis, shorter output.
+lensyxe status
+
 # What did this branch do to the score since the tag?
-lensyxe compare v1.0.0 HEAD
+lensyxe diff v1.0.0 HEAD
 
 # The trend over time, from a local SQLite file inside the repository.
-lensyxe history
+lensyxe log
 
 # The dashboard, served from loopback by the same binary.
 lensyxe serve --open
 
 # The gate. Exit 0 clean, 1 broken, 2 threshold breached.
 lensyxe analyze . --fail-under-health 75
+
+# Optional: propose a config file measured from this repository.
+# Prints a proposal; writes nothing without --write.
+lensyxe setup
 ```
 
 There is nothing else to install: no database server, no daemon, no account, no
 configuration file required. The first command is the whole product.
+
+`diff`, `log`, `st`, `an`, `lg`, `df`, `w`, and `ui` are aliases for
+`compare`, `history`, `status`, `analyze`, `history`, `compare`, `watch`, and
+`serve` respectively, so the spellings you already have in your fingers work
+here.
 
 ---
 
@@ -150,8 +162,10 @@ Full arithmetic: **[docs/SCORING_SPEC.md](docs/SCORING_SPEC.md)**.
 | Command | What it does |
 | :--- | :--- |
 | [`lensyxe analyze`](docs/CLI_REFERENCE.md#lensyxe-analyze) | Score a repository. The main entry point. |
+| [`lensyxe status`](docs/CLI_REFERENCE.md#lensyxe-status) | The same score in a few lines. Does not record a run. |
+| [`lensyxe setup`](docs/CLI_REFERENCE.md#lensyxe-setup) | Propose a `.lensyxe.yml` from a measurement of this repository. Writes nothing without `--write`. |
 | [`lensyxe compare`](docs/CLI_REFERENCE.md#lensyxe-compare) | Compare two revisions via `git archive`, without touching the working tree. |
-| [`lensyxe history`](docs/CLI_REFERENCE.md#lensyxe-history) | Plot the recorded health timeline. |
+| [`lensyxe history`](docs/CLI_REFERENCE.md#lensyxe-history) | Plot the recorded health timeline. Also spelled `log`. |
 | [`lensyxe watch`](docs/CLI_REFERENCE.md#lensyxe-watch) | Re-analyze on every change and stream the movement. |
 | [`lensyxe serve`](docs/CLI_REFERENCE.md#lensyxe-serve) | Local dashboard and JSON API in one process. |
 | `lensyxe version` | Build metadata: commit, build date, toolchain, platform. |
