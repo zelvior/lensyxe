@@ -48,6 +48,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
+          # The floor, deliberately, because this job verifies the tree rather
+          # than producing anything a user downloads. If 1.22 can no longer build
+          # the project, the README's stated requirement is wrong and this is
+          # where that should be caught.
+          #
+          # The build job below uses a newer toolchain because macOS 26 requires
+          # an LC_UUID load command that Go only emits by default from 1.24.
           go-version: '1.22'
           # The module cache survives between runs; the build cache does not
           # need to, since Go's own cache misses are cheap relative to a compile.
@@ -100,7 +107,16 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          # This is the job that produces the binaries users download, so it is
+          # the one that has to be new enough to emit LC_UUID. macOS 26's dyld
+          # will not load a Mach-O executable without it, and Go only started
+          # emitting one by default in 1.24. Built with 1.22, every darwin
+          # archive in this release would build cleanly and then abort the
+          # instant someone ran it. See golang/go#68678.
+          #
+          # go.mod still declares `go 1.22`; that is the language version and the
+          # contributor floor, and CI's test matrix keeps proving 1.22 works.
+          go-version: '1.24'
           cache-dependency-path: go.sum
 
       # ---------------------------------------------------------- dashboard
