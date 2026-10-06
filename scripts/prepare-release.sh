@@ -32,6 +32,11 @@ if [ -d dashboard/out ] && [ -n "$(ls -A dashboard/out 2>/dev/null)" ]; then
   rm -rf "$target"
   mkdir -p "$target"
   cp -r dashboard/out/. "$target"/
+  # Restore .gitkeep. It is committed so a fresh clone has at least one file for
+  # //go:embed to match, and the rm -rf above would otherwise delete it locally,
+  # making `git status` report a deletion that no one actually made. Without
+  # this, running this script once dirties the working tree for no reason.
+  touch "$target/.gitkeep"
   log "embedded $(find "$target" -type f | wc -l | tr -d ' ') dashboard files"
 else
   # Not fatal. The binary still builds and the API still serves; only the UI is
