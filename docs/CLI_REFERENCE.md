@@ -11,6 +11,7 @@ help output is correct and this file is stale.
 - [`lensyxe analyze`](#lensyxe-analyze)
 - [`lensyxe status`](#lensyxe-status)
 - [`lensyxe setup`](#lensyxe-setup)
+- [`lensyxe blast`](#lensyxe-blast)
 - [`lensyxe compare`](#lensyxe-compare)
 - [`lensyxe history`](#lensyxe-history)
 - [`lensyxe watch`](#lensyxe-watch)
@@ -232,6 +233,67 @@ implementation, the flags, and the documented behaviour, and cannot drift apart.
 These are a naming convenience, not a claim to be a version control system.
 `status` reads health and `log` reads recorded health runs; neither can stage,
 commit, or push anything.
+
+## `lensyxe blast`
+
+Report which files have historically changed in the same commit as the files in
+this changeset.
+
+```
+lensyxe blast [path] [file...] [flags]
+```
+
+| Flag | Default | Description |
+| :--- | :--- | :--- |
+| `--coupling <f>` | `0.5` | Minimum shared-commit fraction for a pair to be reported. |
+| `--min-shared <n>` | `3` | Commits two files must co-occur in before the pair counts as evidence. |
+| `--distance <n>` | `3` | How many co-change hops from the changeset to search. |
+| `--limit <n>` | `50` | Maximum predicted files to report. |
+
+With no file arguments it reviews the **pending changeset**: every tracked file
+modified since `HEAD` plus every untracked file that is not gitignored. Naming
+files overrides that, which is what makes the command usable on a branch that is
+already committed.
+
+### How coupling is measured
+
+For a pair of files, coupling is the number of commits touching both, divided by
+the number touching the **rarer** of the two. A value of 1.0 means every time the
+rarer file changed, the other one did too.
+
+Normalising by the rarer file is what makes the number readable. If one file
+changes in every commit and the other changes twice, and both of those changes
+coincide, coupling is 1.0 — and that is the honest reading, because every time
+the rare file changed the common one was there.
+
+Predictions are files reachable from the changeset through the coupling graph,
+ordered by distance first and coupling second. One hop with coupling 0.5 ranks
+above two hops with coupling 1.0.
+
+### What this is not
+
+Co-change is **an association observed in commits, not a dependency analysis**.
+It is not a call graph and not a type graph. Two files that were always bumped
+together score exactly the same as two files that were always refactored
+together, and this command cannot tell those apart. A prediction is a suggestion
+about where to look, not a statement about what must change.
+
+### When it reports nothing
+
+Nothing is predicted below **ten commits** of history, because a coupling ratio
+over fewer commits is dominated by coincidence. The command says so in that case
+and names the threshold:
+
+```
+NO COUPLING REPORTED
+  only 4 commit(s) of history, and co-change coupling needs at least 10 before
+  the ratio distinguishes a real relationship from a coincidence. No coupling is
+  reported. This is a limit of the data, not a finding about the code.
+```
+
+A file named on the command line that has never been committed is listed and
+marked, because it cannot have a coupling and silently omitting it would hide
+the case most likely to need a second pair of eyes.
 
 ## `lensyxe compare`
 
