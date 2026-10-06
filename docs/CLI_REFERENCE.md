@@ -14,6 +14,7 @@ help output is correct and this file is stale.
 - [`lensyxe blast`](#lensyxe-blast)
 - [`lensyxe cognitive`](#lensyxe-cognitive)
 - [`lensyxe decay`](#lensyxe-decay)
+- [`lensyxe topology`](#lensyxe-topology)
 - [`lensyxe compare`](#lensyxe-compare)
 - [`lensyxe history`](#lensyxe-history)
 - [`lensyxe watch`](#lensyxe-watch)
@@ -402,6 +403,88 @@ the figure can be checked rather than taken on trust.
 Nothing in this output is a prediction. An untouched file is not dead code and a
 single-author file is not unmaintained code; these are places where a question
 has not been asked yet.
+
+## `lensyxe topology`
+
+Three independent analyses of repository structure: who owns what, which files
+move together without depending on each other, and whether the package layout
+holds up.
+
+```
+lensyxe topology [path] [flags]
+```
+
+| Flag | Default | Description |
+| :--- | :--- | :--- |
+| `--bus-factor` | off | Report recency-weighted ownership and bus-factor risk. |
+| `--temporal` | off | Report file pairs that co-change without importing each other. |
+| `--boundaries` | off | Report package boundary violations. |
+| `--format <fmt>` | `table` | `table` or `json`. |
+| `--limit <n>` | `25` | Maximum entries per section. |
+| `--risk-share <f>` | `0.7` | Ownership share above which one author controls a file. |
+| `--stale-days <n>` | `90` | Days without a commit before an owner counts as absent. |
+| `--half-life <days>` | `90` | Recency-decay half-life. |
+| `--coupling <f>` | `0.6` | Minimum co-change fraction for a pair to be reported. |
+
+With no selector flag, all three sections run. `--format json` emits only the
+sections selected.
+
+### `--bus-factor`: ownership weighted by recency
+
+A commit's weight is `exp(-ln2 × age / half-life)`: a commit made today weighs 1,
+one made exactly one half-life ago weighs exactly 0.5, and one a year old with a
+90-day half-life weighs about 0.004. Old work is discounted, never erased.
+
+Both the weighted share and the raw commit share are printed. The difference
+between them is the point: it shows when a file belongs to whoever wrote it first
+versus whoever works on it now.
+
+A file is flagged **at risk only when both** conditions hold:
+
+1. one author holds more than `--risk-share` of the weighted history, **and**
+2. that author has not committed there in `--stale-days`.
+
+Either alone is not a risk. A single-author file that is actively maintained is
+healthy, and a departed contributor is a fact about a person rather than about a
+file.
+
+Below 30 days of history the **at-risk verdict is withheld** while the shares are
+still reported, because a 90-day staleness threshold cannot distinguish an absent
+maintainer from a repository that did not exist yet.
+
+### `--temporal`: hidden co-change coupling
+
+Pairs of files that co-occur in commits at or above `--coupling` **without any
+import between them**. That is the interesting case: no compiler enforces the
+relationship, so it lives in a convention or a review habit.
+
+Pairs in one package, or with a direct import, are excluded — a compiler already
+ties those together, so calling them "hidden" would be wrong. Only a *direct*
+import counts; a transitive dependency is real but not direct.
+
+Nothing is reported below 10 commits of history, and the output says so.
+
+This overlaps `lensyxe blast`, which answers the same coupling question for a
+pending changeset. `topology --temporal` surveys the whole repository; `blast`
+asks what a specific change is likely to affect.
+
+### `--boundaries`: package layout rules
+
+Inferred regions are `pkg`, `internal`, `cmd`, `apps`, and `services` where they
+exist; every other top-level directory containing Go source becomes its own
+region. Rules checked:
+
+| Rule | Why |
+| :--- | :--- |
+| **Nothing below `cmd/` imports it** | `cmd/` is the binary layer and sits at the top of the dependency graph. A library importing one drags its `main` and flags in. |
+| **No package imports the module root** | In Go the root is usually `package main`, and importing it pulls it into a library. |
+| **No local import cycle** | Reported as one cycle, not N pairwise edges, so a single finding is not buried in repeats of itself. |
+
+Only Go source is parsed. The file and package counts are printed so the coverage
+is visible — a boundary audit that silently ignored a JavaScript tree would report
+a clean bill of health for half the repository.
+
+These are layout rules, not judgements about design.
 
 ## `lensyxe compare`
 

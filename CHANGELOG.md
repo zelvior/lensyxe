@@ -17,6 +17,53 @@ workflow does that, so the claim was removed rather than left standing.
 
 ### Added
 
+- **`lensyxe topology`** — three independent analyses of repository structure,
+  selected with `--bus-factor`, `--temporal`, `--boundaries`, or none for all
+  three, and rendered as a table or JSON.
+  - **Bus factor.** Recency-weighted ownership per file and directory. A file is
+    flagged at risk only when one author both holds more than the share
+    threshold *and* has not committed there within the staleness window; either
+    condition alone is not a risk, since a single-author file can be actively
+    maintained. Both the weighted and the raw commit share are printed, because
+    the gap between them is what shows whether a file belongs to whoever wrote it
+    first or to whoever works on it now.
+  - **Temporal coupling.** File pairs that co-change in commits at or above the
+    coupling threshold *without any import between them*. Pairs that share a
+    package or have a direct import are excluded, because a compiler already ties
+    those together and calling them hidden would be wrong.
+  - **Boundaries.** Regions inferred from `pkg`, `internal`, `cmd`, `apps`, and
+    `services` where present, and from top-level directories otherwise. Three
+    rules are enforced: nothing below `cmd/` may import it, no package may import
+    the module root, and there may be no local import cycle. Cycles are reported
+    as one finding rather than as N pairwise edges.
+- **`internal/gitlog`** — a single reader for dated commits and the files they
+  touched, shared by the topology analyses.
+
+### Notes on `lensyxe topology`
+
+Ownership decay is `exp(-ln2 × age / half-life)`, so a commit made exactly one
+half-life ago weighs exactly 0.5. An earlier version used `exp(-age/half-life)`,
+which decayed by a factor of *e* per half-life and gave 0.368 where the parameter
+name promised 0.5 — every share derived from it was wrong by a constant. A
+parameter named for what it does has to actually do it.
+
+The boundary audit reports that it found no violations on this repository, and
+that is a real result rather than an empty scan: 31 packages across 130 Go files
+were parsed, and the rule that `cmd/` may not be imported from below is checked
+against all of them.
+
+`--temporal` overlaps `lensyxe blast`. They answer the same coupling question at
+different scopes: `topology --temporal` surveys the whole repository, `blast`
+asks what a specific pending change is likely to affect. Blast Radius remains the
+one to use during review.
+
+Two of the three analyses withhold a number when the history cannot support it.
+Ownership decay needs commits spread over time, and below 30 days of history the
+at-risk verdict is withheld while the shares are still reported. Co-change needs
+at least 10 commits, below which a ratio is dominated by coincidence. In both
+cases the output names the threshold and states that the limit is the data rather
+than a finding about the code.
+
 - **`lensyxe cognitive`** — measures three structural properties per file and
   combines them into a 0-100 friction index: variable lifetime span (lines from a
   local's declaration to its last use), context-switch density (distinct call
