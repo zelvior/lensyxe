@@ -220,6 +220,13 @@ type codeSummary struct {
 	TestFileRatio float64 `json:"test_file_ratio"`
 	TestLineRatio float64 `json:"test_line_ratio"`
 	HasTests      bool    `json:"has_tests"`
+	// Languages is the per-language breakdown, already sorted by lines
+	// descending then name ascending, so a client can render it directly.
+	//
+	// It was measured and already in the snapshot; it simply was not on this
+	// response. Per-language figures are the first thing anyone asks about a
+	// polyglot repository and the engine had them all along.
+	Languages []models.LanguageStat `json:"languages"`
 }
 
 // gitSummary is the subset of git stats the overview needs.
@@ -317,6 +324,7 @@ func (s *Server) writeHealth(w http.ResponseWriter, r *http.Request) {
 			TestFileRatio: snap.Code.TestFileRatio,
 			TestLineRatio: snap.Code.TestLineRatio,
 			HasTests:      snap.Code.HasTests,
+			Languages:     append([]models.LanguageStat{}, snap.Code.Languages...),
 		},
 		Git: gitSummary{
 			IsRepository:    snap.Git.IsRepository,

@@ -98,6 +98,21 @@ export interface HistoryRecord {
 }
 
 /** GET /api/v1/health */
+/**
+ * One row of the per-language breakdown.
+ *
+ * Fields mirror models.LanguageStat exactly. The endpoint relays the analyzer's
+ * ordering (lines descending, then name ascending) rather than re-sorting, so
+ * the list can be rendered directly.
+ */
+export interface LanguageStat {
+  name: string;
+  files: number;
+  /** Code lines, blank lines and comments excluded. */
+  lines: number;
+  test_files: number;
+}
+
 export interface HealthResponse {
   root: string;
   version: string;
@@ -115,6 +130,8 @@ export interface HealthResponse {
     test_file_ratio: number;
     test_line_ratio: number;
     has_tests: boolean;
+    /** Never null: an empty breakdown arrives as []. */
+    languages: LanguageStat[];
   };
   git: {
     is_repository: boolean;

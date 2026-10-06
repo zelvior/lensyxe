@@ -4,6 +4,9 @@ import { useOverview } from 'lib/useOverview';
 import { HealthGauge, MetricBars, StatTile } from 'components/HealthGauge';
 import { HealthTimeline } from 'components/HealthTimeline';
 import { HotspotTable } from 'components/HotspotTable';
+import { ChurnTable } from 'components/ChurnTable';
+import { CompareView } from 'components/CompareView';
+import { LanguageBreakdown } from 'components/LanguageBreakdown';
 import { RiskList, RiskSummary } from 'components/RiskList';
 import { formatPct } from 'lib/format';
 
@@ -121,6 +124,22 @@ export default function OverviewPage() {
         />
       </section>
 
+      {/* Comparison */}
+      <section className="card">
+        <p className="card-title">Compare against a recorded run</p>
+        <CompareView
+          current={health}
+          records={history.records}
+          confirmedHotspots={hotspots.confirmed}
+        />
+      </section>
+
+      {/* Languages */}
+      <section className="card">
+        <p className="card-title">Languages</p>
+        <LanguageBreakdown languages={health.code.languages} />
+      </section>
+
       {/* Timeline */}
       <section className="card">
         <p className="card-title">Health over time</p>
@@ -149,9 +168,16 @@ export default function OverviewPage() {
           <p className="mt-3 text-xs text-slate-600">
             {hotspots.confirmed} confirmed of {hotspots.total} candidate
             {hotspots.total === 1 ? '' : 's'}. Confirmation requires size, churn,
-            and complexity to cross their thresholds together.
+            and complexity to cross their thresholds together. Select a row for
+            the detail.
           </p>
         )}
+      </section>
+
+      {/* Churn */}
+      <section className="card">
+        <p className="card-title">Churn</p>
+        <ChurnTable churn={hotspots.churn} hotspots={hotspots.hotspots} />
       </section>
 
       <p className="text-xs text-slate-600">
