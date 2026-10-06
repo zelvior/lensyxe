@@ -161,13 +161,34 @@ jobs:
         run: |
           set -euo pipefail
           target="internal/server/assets"
-          rm -rf "$target"
+
+          # Clear the previous export, but never the whole directory.
+          #
+          # `rm -rf "$target"` deletes .gitkeep, which is tracked precisely so
+          # that `//go:embed all:assets` has something to embed on a clean
+          # checkout. Deleting it leaves the working tree dirty, and goreleaser
+          # refuses to release from a dirty tree -- which is how the first tagged
+          # release failed in the build job with no clue why, nineteen seconds
+          # after the dashboard had built perfectly.
+          #
+          # Removing only real files leaves the tracked placeholder alone.
+          find "$target" -type f ! -name '.gitkeep' -delete 2>/dev/null || true
+          find "$target" -mindepth 1 -type d -empty -delete 2>/dev/null || true
           mkdir -p "$target"
+
           cp -r dashboard/out/. "$target"/
           count="$(find "$target" -type f | wc -l)"
           echo "embedded $count dashboard files"
           if [ "$count" -lt 5 ]; then
             echo "::error::the dashboard export looks incomplete ($count files)"
+            exit 1
+          fi
+
+          # Report a dirty tree here, where the reason is legible, rather than
+          # leaving goreleaser to fail with a bare "git is in a dirty state".
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::the tree is dirty after embedding the dashboard:"
+            git status --porcelain
             exit 1
           fi
 

@@ -1,7 +1,7 @@
 <div align="center">
 
 ![CI](https://github.com/zelvior/lensyxe/actions/workflows/ci.yml/badge.svg)
-![Release](https://img.shields.io/github/v/release/zelvior/lensyxe?label=release)
+![Release](https://img.shields.io/github/v/tag/zelvior/lensyxe?label=release&sort=semver)
 ![License](https://img.shields.io/github/license/zelvior/lensyxe)
 ![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8?logo=go&logoColor=white)
 
