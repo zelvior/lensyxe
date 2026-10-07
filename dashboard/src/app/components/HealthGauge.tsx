@@ -2,88 +2,115 @@ import type { Metric } from 'lib/types';
 import { formatScore, scoreColor } from 'lib/format';
 
 /**
- * HealthGauge draws the overall score as an arc.
+ * HealthGauge draws the overall score as a ring.
  *
- * An SVG arc rather than a canvas: it scales crisply, needs no layout
- * measurement, and is deterministic, so the same snapshot always renders the
- * same path. The gauge is a pure function of `score` with no animation, for
- * the same reason the CLI output is static.
+ * This replaces an arc built from two endpoint coordinates. That version took
+ * its `large-arc-flag` from the *start* point's angle rather than the sweep, so
+ * a 240-degree arc was asked to render as a sub-180 one and the renderer picked
+ * whichever arc satisfied the flags -- correct only by luck of the geometry.
+ *
+ * A full ring has no such ambiguity: the drawn length is a fraction of the
+ * circumference, which is the one piece of arithmetic here that cannot be
+ * misread. It is also a larger target for the number, which is the point of the
+ * component.
+ *
+ * No animation, deliberately. The CLI output is static and a score that grows
+ * from zero measures nothing that the final frame does not.
  */
-export function HealthGauge({ score, grade }: { score: number; grade: string }) {
+export function HealthGauge({
+  score,
+  grade,
+  size = 'md',
+}: {
+  score: number;
+  grade: string;
+  size?: 'sm' | 'md';
+}) {
   const clamped = Math.max(0, Math.min(100, Number.isFinite(score) ? score : 0));
 
-  // A 240-degree sweep starting at the 7 o'clock position.
-  const sweep = 240;
-  const startAngle = 150;
-  const circumference = 2 * Math.PI * 62;
-
-  const arcPath = (pct: number) => {
-    const angle = startAngle + (sweep * pct) / 100;
-    const rad = (angle * Math.PI) / 180;
-    const x = 80 + 62 * Math.cos(rad);
-    const y = 80 + 62 * Math.sin(rad);
-    return { x, y, large: angle - startAngle > 180 ? 1 : 0 };
-  };
-
-  const to = arcPath(clamped);
-  const from = arcPath(0);
-  const track = `M ${from.x} ${from.y} A 62 62 0 ${from.large} 1 ${to.x} ${to.y}`;
+  // Radius and centre are derived from one number so the ring, the stroke and
+  // the type scale together. viewBox is square and the drawing stays inside it
+  // with room for the stroke, which is what stops the ring being clipped.
+  const r = 54;
+  const centre = 70;
+  const circumference = 2 * Math.PI * r;
+  const stroke = size === 'sm' ? 10 : 13;
 
   return (
-    <div className="flex items-center gap-6">
+    <div className="relative shrink-0" style={{ width: centre * 2, height: centre * 2 }}>
       <svg
-        viewBox="0 0 160 130"
-        className="h-32 w-40 shrink-0"
+        viewBox={`0 0 ${centre * 2} ${centre * 2}`}
+        className="h-full w-full"
         role="img"
         aria-label={`Health score ${formatScore(clamped)} out of 100, grade ${grade}`}
       >
-        <path
-          d={track}
+        {/* Track. Full circle, so it reads as a dial with a defined scale. */}
+        <circle
+          cx={centre}
+          cy={centre}
+          r={r}
           fill="none"
           stroke="#1e293b"
-          strokeWidth="14"
-          strokeLinecap="round"
+          strokeWidth={stroke}
         />
         {clamped > 0 && (
-          <path
-            d={track}
+          <circle
+            cx={centre}
+            cy={centre}
+            r={r}
             fill="none"
             stroke={scoreColor(clamped)}
-            strokeWidth="14"
+            strokeWidth={stroke}
             strokeLinecap="round"
-            strokeDasharray={`${(clamped / 100) * circumference * (sweep / 360)} ${circumference}`}
+            /* Rotated so the fill starts at twelve o'clock rather than at the
+               SVG origin angle, which is three o'clock. */
+            transform={`rotate(-90 ${centre} ${centre})`}
+            strokeDasharray={`${(clamped / 100) * circumference} ${circumference}`}
           />
         )}
-        <text
-          x="80"
-          y="76"
-          textAnchor="middle"
-          className="fill-slate-100 text-[30px] font-semibold"
+      </svg>
+      {/* Positioned over the SVG rather than inside it: SVG text does not wrap
+          and cannot be measured, and this has to hold "100" and "86.8" in the
+          same box without the digits shifting as the value changes. */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span
+          className={`tabular font-semibold leading-none text-slate-50 ${
+            size === 'sm' ? 'text-2xl' : 'text-4xl'
+          }`}
         >
           {formatScore(clamped)}
-        </text>
-        <text x="80" y="98" textAnchor="middle" className="fill-slate-500 text-[12px]">
-          grade {grade}
-        </text>
-      </svg>
-      <div className="min-w-0">
-        <p className="text-sm text-slate-400">{scoreLabel(clamped)}</p>
+        </span>
+        <span className="mt-1 text-xs uppercase tracking-widest text-slate-400">
+          {grade || '—'}
+        </span>
       </div>
     </div>
   );
 }
 
 /** scoreLabel names the band, reusing the Grade thresholds. */
-function scoreLabel(score: number): string {
-  if (score >= 90) return 'Strong across the measured dimensions.';
+export function scoreLabel(score: number): string {
+  if (score >= 90) return 'Strong across every measured dimension.';
   if (score >= 80) return 'Healthy, with room to improve.';
   if (score >= 70) return 'Acceptable; some dimensions need work.';
   if (score >= 60) return 'Below target on one or more dimensions.';
   return 'At risk. The weakest dimension needs attention first.';
 }
 
-/** MetricBars renders one proportional bar per scored component. */
-export function MetricBars({ metrics }: { metrics: Metric[] }) {
+/**
+ * MetricBars renders one proportional bar per scored component.
+ *
+ * The bar is scaled to 0-100 rather than to the best component. A set of bars
+ * normalised to its own maximum makes a 60 look identical to a 95, which is the
+ * one thing a score chart must not do.
+ */
+export function MetricBars({
+  metrics,
+  compact = false,
+}: {
+  metrics: Metric[];
+  compact?: boolean;
+}) {
   const applicable = metrics.filter((m) => m.applicable);
 
   if (applicable.length === 0) {
@@ -94,40 +121,52 @@ export function MetricBars({ metrics }: { metrics: Metric[] }) {
     );
   }
 
+  const weakest = applicable.reduce((min, m) => (m.score < min.score ? m : min));
+
   return (
-    <ul className="space-y-3">
-      {applicable.map((m) => (
-        <li key={m.key}>
-          <div className="flex items-baseline justify-between gap-4">
-            <span className="truncate text-sm text-slate-300">{m.label}</span>
-            <span className="tabular shrink-0 text-sm text-slate-400">
-              {formatScore(m.score)}
-              <span className="ml-2 text-xs text-slate-400">
-                {Math.round(m.weight * 100)}% weight
+    <ul className={compact ? 'space-y-2.5' : 'space-y-3.5'}>
+      {applicable.map((m) => {
+        const isWeakest = m.key === weakest.key && applicable.length > 1;
+        return (
+          <li key={m.key}>
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="flex min-w-0 items-baseline gap-2">
+                <span className="truncate text-sm text-slate-200">{m.label}</span>
+                {isWeakest && (
+                  <span className="hidden shrink-0 text-[0.65rem] uppercase tracking-wider text-amber-300/90 sm:inline">
+                    weakest
+                  </span>
+                )}
               </span>
-            </span>
-          </div>
-          <div
-            className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-800"
-            role="meter"
-            aria-valuenow={Math.round(m.score)}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label={m.label}
-          >
+              <span className="tabular shrink-0 text-sm text-slate-300">
+                {formatScore(m.score)}
+                <span className="ml-2 text-xs text-slate-400">
+                  {Math.round(m.weight * 100)}%
+                </span>
+              </span>
+            </div>
             <div
-              className="h-full rounded-full"
-              style={{
-                width: `${Math.max(0, Math.min(100, m.score))}%`,
-                backgroundColor: scoreColor(m.score),
-              }}
-            />
-          </div>
-          {m.detail && (
-            <p className="mt-1 truncate text-xs text-slate-400">{m.detail}</p>
-          )}
-        </li>
-      ))}
+              className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-800"
+              role="meter"
+              aria-valuenow={Math.round(m.score)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`${m.label}: ${formatScore(m.score)} out of 100`}
+            >
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${Math.max(0, Math.min(100, m.score))}%`,
+                  backgroundColor: scoreColor(m.score),
+                }}
+              />
+            </div>
+            {m.detail && (
+              <p className="mt-1 text-xs leading-snug text-slate-400">{m.detail}</p>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -148,10 +187,14 @@ export function StatTile({
   note?: string;
 }) {
   return (
-    <div className="card">
-      <p className="text-xs uppercase tracking-wider text-slate-300">{label}</p>
-      <p className="tabular mt-1.5 text-2xl font-semibold text-slate-100">{value}</p>
-      {note && <p className="mt-1 text-xs text-slate-400">{note}</p>}
+    <div className="min-w-0">
+      <p className="text-[0.65rem] uppercase tracking-wider text-slate-400">
+        {label}
+      </p>
+      <p className="tabular mt-1 text-xl font-semibold text-slate-50 sm:text-2xl">
+        {value}
+      </p>
+      {note && <p className="mt-0.5 text-xs leading-snug text-slate-400">{note}</p>}
     </div>
   );
 }

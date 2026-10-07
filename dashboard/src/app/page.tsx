@@ -1,7 +1,7 @@
 'use client';
 
 import { useOverview } from 'lib/useOverview';
-import { HealthGauge, MetricBars, StatTile } from 'components/HealthGauge';
+import { HealthGauge, MetricBars, StatTile, scoreLabel } from 'components/HealthGauge';
 import { HealthTimeline } from 'components/HealthTimeline';
 import { HotspotTable } from 'components/HotspotTable';
 import { ChurnTable } from 'components/ChurnTable';
@@ -20,17 +20,22 @@ import { formatPct } from 'lib/format';
  * showed whatever the repository looked like when someone ran `npm run build`,
  * which for a tool whose entire purpose is reporting the current state of your
  * code is worse than showing nothing.
+ *
+ * Layout note. The reading order is deliberate and is not the order the
+ * analyzer computes things in: score first, because it is the answer; then what
+ * to do about it, which is the risks; then the evidence behind the risks; then
+ * the composition. Two sections that would render as full-width cards holding a
+ * single sentence of "nothing yet" are collapsed into one History card, because
+ * an empty card is a hole in the page and two holes read as a broken build.
  */
 export default function OverviewPage() {
   const { state, reload, loadSnapshot, backToLoader } = useOverview();
 
   if (state.status === 'loading') {
     return (
-      <div className="card">
-        <h2 className="card-title">Analyzing</h2>
-        <p className="text-sm text-slate-400">
-          Reading the local repository through the Lensyxe API.
-        </p>
+      <div className="flex items-center gap-3 py-16 text-sm text-slate-400">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
+        Reading the local repository through the Lensyxe API.
       </div>
     );
   }
@@ -43,22 +48,22 @@ export default function OverviewPage() {
 
   if (state.status === 'error') {
     return (
-      <div className="card">
-        <h2 className="card-title">Unavailable</h2>
-        <p className="text-sm text-slate-400">
+      <div className="card max-w-2xl">
+        <h2 className="text-sm font-semibold text-slate-100">Unavailable</h2>
+        <p className="mt-2 text-sm text-slate-300">
           Could not reach the local Lensyxe API.
         </p>
-        <p className="mt-2 break-words font-mono text-xs text-red-400">
+        <p className="mt-2 break-words font-mono text-xs text-red-300">
           {state.message}
         </p>
-        <p className="mt-3 text-xs text-slate-400">
+        <p className="mt-3 text-xs leading-relaxed text-slate-400">
           Is the server still running? Press Ctrl+C in the terminal that started
-          it and run <code className="text-slate-400">lensyxe serve</code> again.
+          it and run <code className="text-slate-300">lensyxe serve</code> again.
         </p>
         <button
           type="button"
           onClick={() => void reload()}
-          className="mt-4 rounded border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:border-slate-500"
+          className="mt-4 rounded border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:border-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
         >
           Retry
         </button>
@@ -67,76 +72,105 @@ export default function OverviewPage() {
   }
 
   const { health, risks, hotspots, history } = state.data;
+  const weakest = health.health.metrics
+    .filter((m) => m.applicable)
+    .reduce((min, m) => (m.score < min.score ? m : min));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 sm:space-y-10">
+      {/* ---------------------------------------------------- provenance */}
       {/*
-        Provenance is stated, not implied.
-
-        A snapshot cannot be refreshed -- there is no repository behind it -- so
-        offering "Reload data" would be offering a button that cannot do what it
-        says. What it offers instead is a file picker, which is honest.
+        Stated, not implied. A snapshot cannot be refreshed -- there is no
+        repository behind it -- so offering "Reload data" would be offering a
+        button that cannot do what it says. What it offers instead is a file
+        picker, which is honest.
       */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         {state.mode === 'snapshot' && state.snapshot ? (
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-            <span className="font-semibold">Snapshot</span>
-            <span className="font-mono opacity-80">
+          <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-amber-200/90">
+            <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-medium uppercase tracking-wide">
+              Snapshot
+            </span>
+            <span className="truncate font-mono text-amber-100/80">
               {state.snapshot.root || 'unknown repository'}
             </span>
             {state.snapshot.generatedAt && (
-              <span className="opacity-80">
-                measured {state.snapshot.generatedAt.replace('T', ' ').replace('Z', ' UTC')}
+              <span className="text-amber-200/60">
+                {state.snapshot.generatedAt.replace('T', ' ').replace('Z', ' UTC')}
               </span>
             )}
             {state.snapshot.version && (
-              <span className="opacity-80">lensyxe {state.snapshot.version}</span>
+              <span className="text-amber-200/60">lensyxe {state.snapshot.version}</span>
             )}
           </p>
         ) : (
           <p className="text-xs text-slate-400">
-            Live · reading a local repository
+            <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 align-middle" />
+            Live · re-analyzes on demand from a local repository
           </p>
         )}
         <button
           type="button"
-          onClick={() =>
-            state.mode === 'snapshot' ? backToLoader() : void reload()
-          }
-          className="ml-auto rounded border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:border-slate-500"
+          onClick={() => (state.mode === 'snapshot' ? backToLoader() : void reload())}
+          className="shrink-0 self-start rounded border border-slate-700 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:border-slate-500 hover:text-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 sm:self-auto"
         >
-          {state.mode === 'snapshot' ? 'Load another snapshot' : 'Reload data'}
+          {state.mode === 'snapshot' ? 'Load another snapshot' : 'Re-analyze'}
         </button>
       </div>
 
-      {/* Summary */}
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <div className="card">
-          <h2 className="card-title">Overall Health</h2>
+      {/* --------------------------------------------------------- score */}
+      {/*
+        The score and the breakdown share one band rather than sitting in two
+        cards side by side. At tablet width a 2/3+1/3 split left the gauge card
+        two-thirds empty, because the gauge is a fixed 140px and the summary is
+        one sentence.
+      */}
+      <section className="grid gap-6 border-b border-slate-800 pb-8 sm:gap-8 lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-12">
+        <div className="flex items-center gap-5 sm:gap-6">
           <HealthGauge score={health.health.score} grade={health.health.grade} />
-          <p className="mt-3 text-sm text-slate-400">{health.health.summary}</p>
-          <p className="mt-2 truncate text-xs text-slate-400">
-            <span className="font-mono">{health.root}</span> · lensyxe {health.version}
-          </p>
+          <div className="min-w-0 lg:hidden">
+            <p className="text-sm font-medium text-slate-200">
+              {scoreLabel(health.health.score)}
+            </p>
+            <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
+              Weakest dimension: {weakest.label} at {weakest.score.toFixed(1)}.
+            </p>
+          </div>
         </div>
 
-        <div className="card">
-          <h2 className="card-title">Components</h2>
-          <MetricBars metrics={health.health.metrics} />
+        <div className="min-w-0">
+          <div className="hidden lg:block">
+            <p className="text-base text-slate-200">
+              {scoreLabel(health.health.score)}
+            </p>
+            <p className="mt-1.5 text-sm leading-relaxed text-slate-400">
+              {health.health.summary} Weakest dimension:{' '}
+              <span className="text-slate-300">{weakest.label}</span> at{' '}
+              {weakest.score.toFixed(1)} of 100.
+            </p>
+          </div>
+          <div className="mt-0 lg:mt-5">
+            <MetricBars metrics={health.health.metrics} />
+          </div>
         </div>
       </section>
 
-      {/* Figures */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* -------------------------------------------------------- figures */}
+      {/*
+        Four figures on one ruled row rather than four cards. Cards per figure
+        made each number a 120px box with a border, which is a lot of chrome for
+        a number, and it forced a 2x2 grid at tablet width for no reason.
+      */}
+      <section className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4 sm:gap-x-6 lg:gap-x-10">
         <StatTile
           label="Source files"
           value={String(health.code.source_files)}
-          note={`${health.code.files} files scanned, ${health.code.code_lines} code lines`}
+          note={`${health.code.files} scanned · ${health.code.code_lines.toLocaleString('en-US')} code lines`}
         />
         <StatTile
-          label="Test file ratio"
+          label="Test files"
           value={formatPct(health.code.test_file_ratio)}
-          note={`${health.code.test_files} test files of ${health.code.files} total`}
+          note={`${health.code.test_files} of ${health.code.files} · ${formatPct(health.code.test_line_ratio)} of lines`}
         />
         <StatTile
           label="Dependencies"
@@ -144,8 +178,8 @@ export default function OverviewPage() {
           note={
             health.dependencies.detected
               ? health.dependencies.locked
-                ? `${health.dependencies.direct} direct, lockfile present`
-                : `${health.dependencies.direct} direct, no lockfile`
+                ? `${health.dependencies.direct} direct · locked`
+                : `${health.dependencies.direct} direct · no lockfile`
               : 'no manifest detected'
           }
         />
@@ -154,40 +188,16 @@ export default function OverviewPage() {
           value={health.git.is_repository ? String(health.git.window_commits) : 'n/a'}
           note={
             health.git.is_repository
-              ? `commits by ${health.git.authors} author${
-                  health.git.authors === 1 ? '' : 's'
-                } · branch ${health.git.branch || 'detached'}`
-              : health.git.note ?? 'not a git repository'
+              ? `commits · ${health.git.authors} author${health.git.authors === 1 ? '' : 's'} · ${health.git.branch || 'detached'}`
+              : (health.git.note ?? 'not a git repository')
           }
         />
       </section>
 
-      {/* Comparison */}
-      <section className="card">
-        <h2 className="card-title">Compare against a recorded run</h2>
-        <CompareView
-          current={health}
-          records={history.records}
-          confirmedHotspots={hotspots.confirmed}
-        />
-      </section>
-
-      {/* Languages */}
-      <section className="card">
-        <h2 className="card-title">Languages</h2>
-        <LanguageBreakdown languages={health.code.languages} />
-      </section>
-
-      {/* Timeline */}
-      <section className="card">
-        <h2 className="card-title">Health over time</h2>
-        <HealthTimeline records={history.records} />
-      </section>
-
-      {/* Risks */}
-      <section className="card">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-          <h2 className="card-title mb-0">Top detected risks</h2>
+      {/* ---------------------------------------------------------- risks */}
+      <section>
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h2 className="text-sm font-semibold text-slate-100">Risks</h2>
           <RiskSummary
             critical={risks.critical}
             high={risks.high}
@@ -198,30 +208,52 @@ export default function OverviewPage() {
         <RiskList risks={risks.risks} />
       </section>
 
-      {/* Hotspots */}
-      <section className="card">
-        <h2 className="card-title">Hotspots</h2>
-        <HotspotTable hotspots={hotspots.hotspots} />
-        {hotspots.total > 0 && (
-          <p className="mt-3 text-xs text-slate-400">
-            {hotspots.confirmed} confirmed of {hotspots.total} candidate
-            {hotspots.total === 1 ? '' : 's'}. Confirmation requires size, churn,
-            and complexity to cross their thresholds together. Select a row for
-            the detail.
-          </p>
-        )}
+      {/* ------------------------------------------------- hotspots/churn */}
+      {/*
+        Side by side only where there is room for two dense tables. Below xl
+        they stack, because two seven-column tables at 50% width is a layout
+        that cannot be read at any size.
+      */}
+      <section className="grid gap-8 xl:grid-cols-2 xl:gap-10">
+        <div className="min-w-0">
+          <h2 className="mb-3 text-sm font-semibold text-slate-100">Hotspots</h2>
+          <HotspotTable hotspots={hotspots.hotspots} />
+          {hotspots.total > 0 && (
+            <p className="mt-2 text-xs leading-relaxed text-slate-400">
+              Confirmation needs size, churn, and complexity to cross their
+              thresholds together. Size alone is weak evidence.
+            </p>
+          )}
+        </div>
+        <div className="min-w-0">
+          <h2 className="mb-3 text-sm font-semibold text-slate-100">Churn</h2>
+          <ChurnTable churn={hotspots.churn} hotspots={hotspots.hotspots} />
+        </div>
       </section>
 
-      {/* Churn */}
-      <section className="card">
-        <h2 className="card-title">Churn</h2>
-        <ChurnTable churn={hotspots.churn} hotspots={hotspots.hotspots} />
+      {/* ------------------------------------------------------ languages */}
+      <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-10">
+        <div className="min-w-0">
+          <h2 className="mb-3 text-sm font-semibold text-slate-100">History</h2>
+          <HealthTimeline records={history.records} />
+          {history.records.length > 0 && (
+            <div className="mt-6">
+              <h3 className="mb-2 text-xs uppercase tracking-wider text-slate-400">
+                Compare against a recorded run
+              </h3>
+              <CompareView
+                current={health}
+                records={history.records}
+                confirmedHotspots={hotspots.confirmed}
+              />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0">
+          <h2 className="mb-3 text-sm font-semibold text-slate-100">Languages</h2>
+          <LanguageBreakdown languages={health.code.languages} />
+        </div>
       </section>
-
-      <p className="text-xs text-slate-400">
-        {history.count} recorded run{history.count === 1 ? '' : 's'} · {risks.total}{' '}
-        risk{risks.total === 1 ? '' : 's'} in the current snapshot
-      </p>
     </div>
   );
 }

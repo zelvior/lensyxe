@@ -86,6 +86,8 @@ function FactorChips({ classification, confirmed }: { classification: string; co
  */
 export function HotspotTable({ hotspots }: { hotspots: Hotspot[] }) {
   const [open, setOpen] = useState<Set<string>>(() => new Set());
+  const [query, setQuery] = useState('');
+  const [confirmedOnly, setConfirmedOnly] = useState(false);
 
   if (hotspots.length === 0) {
     return (
@@ -95,6 +97,24 @@ export function HotspotTable({ hotspots }: { hotspots: Hotspot[] }) {
     );
   }
 
+  /*
+   * Filtering is done here rather than in the parent so the counts in the
+   * surrounding prose always describe what is on screen. A "10 candidates" note
+   * above a filtered list of three is the kind of small lie that makes a table
+   * untrustworthy.
+   *
+   * The match is a plain case-insensitive substring on the path, so `gap`,
+   * `internal/gap`, and `GAPI` all find what you would expect. It is not a
+   * glob: a filter that silently fails to match a pattern is worse than one
+   * whose rules you can hold in your head.
+   */
+  const needle = query.trim().toLowerCase();
+  const visible = hotspots.filter((h) => {
+    if (confirmedOnly && !h.confirmed) return false;
+    if (needle && !h.path.toLowerCase().includes(needle)) return false;
+    return true;
+  });
+
   const toggle = (path: string) =>
     setOpen((prev) => {
       const next = new Set(prev);
@@ -103,37 +123,92 @@ export function HotspotTable({ hotspots }: { hotspots: Hotspot[] }) {
     });
 
   const largest = hotspots[0].lines > 0 ? hotspots[0].lines : 1;
+  const confirmedCount = hotspots.filter((h) => h.confirmed).length;
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-300">
-            <th scope="col" className="py-2 pr-4 font-medium">
-              <span className="sr-only">Expand</span>
-            </th>
-            <th scope="col" className="py-2 pr-4 font-medium">File</th>
-            <th scope="col" className="py-2 pr-4 text-right font-medium">Lines</th>
-            <th scope="col" className="py-2 pr-4 text-right font-medium">Churn</th>
-            <th scope="col" className="py-2 pr-4 text-right font-medium">Cx</th>
-            <th scope="col" className="py-2 font-medium">Severity</th>
-          </tr>
-        </thead>
-        <tbody>
-          {hotspots.map((h) => {
+    <div>
+      {/* Controls sit above the table rather than inside the card header, so
+          they travel with the thing they filter when the page is read on a
+          narrow screen. */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <label className="sr-only" htmlFor="hotspot-filter">
+          Filter hotspots by path
+        </label>
+        <input
+          id="hotspot-filter"
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Filter by path"
+          spellCheck={false}
+          autoComplete="off"
+          className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-900/60 px-2.5 py-1.5 text-sm text-slate-200 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={() => setConfirmedOnly((v) => !v)}
+          aria-pressed={confirmedOnly}
+          disabled={confirmedCount === 0}
+          className={`shrink-0 rounded border px-2.5 py-1.5 text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 disabled:cursor-not-allowed disabled:opacity-40 ${
+            confirmedOnly
+              ? 'border-red-500/60 bg-red-500/15 text-red-200'
+              : 'border-slate-700 text-slate-300 hover:border-slate-500'
+          }`}
+        >
+          Confirmed only ({confirmedCount})
+        </button>
+        <span className="tabular shrink-0 text-xs text-slate-400">
+          {visible.length} of {hotspots.length}
+        </span>
+      </div>
+
+      {visible.length === 0 ? (
+        <p className="py-6 text-sm text-slate-300">
+          No hotspot matches {query ? <code className="font-mono text-slate-200">{query}</code> : 'that filter'}.
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-800 text-[0.65rem] uppercase tracking-wider text-slate-400">
+                <th scope="col" className="w-6 py-2 pr-2 font-medium">
+                  <span className="sr-only">Expand</span>
+                </th>
+                <th scope="col" className="py-2 pr-4 font-medium">File</th>
+                <th scope="col" className="py-2 pr-4 text-right font-medium">Lines</th>
+                <th scope="col" className="hidden py-2 pr-4 text-right font-medium sm:table-cell">Churn</th>
+                <th scope="col" className="hidden py-2 pr-4 text-right font-medium md:table-cell">Cx</th>
+                <th scope="col" className="py-2 font-medium">Severity</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((h) => {
             const expanded = open.has(h.path);
             return (
               <Fragment key={h.path}>
                 <tr
-                  className="cursor-pointer border-b border-slate-800/50 align-top hover:bg-slate-800/20"
-                  onClick={() => toggle(h.path)}
+                  className="border-b border-slate-800/50 align-top hover:bg-slate-800/20"
                 >
-                  <td className="w-6 py-2.5 pr-2 text-slate-400">
-                    <span aria-hidden="true">{expanded ? '▾' : '▸'}</span>
+                  <td className="w-6 py-2.5 pr-2">
+                    {/* A real button rather than a click handler on the row:
+                        a row-level onClick is unreachable by keyboard, and an
+                        expander that only responds to a mouse is not a control
+                        at all. */}
+                    <button
+                      type="button"
+                      onClick={() => toggle(h.path)}
+                      aria-expanded={expanded}
+                      className="-ml-1 flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-slate-700/60 hover:text-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-400"
+                    >
+                      <span aria-hidden="true">{expanded ? '▾' : '▸'}</span>
+                      <span className="sr-only">
+                        {expanded ? 'Hide detail for' : 'Show detail for'} {h.path}
+                      </span>
+                    </button>
                   </td>
                   <th
                     scope="row"
-                    className="py-2.5 pr-4 text-left font-normal"
+                    className="max-w-[9rem] py-2.5 pr-4 text-left font-normal sm:max-w-xs lg:max-w-none"
                   >
                     <span className="block truncate font-mono text-xs text-slate-200">
                       {h.path}
@@ -211,8 +286,10 @@ export function HotspotTable({ hotspots }: { hotspots: Hotspot[] }) {
               </Fragment>
             );
           })}
-        </tbody>
-      </table>
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

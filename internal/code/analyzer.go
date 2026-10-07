@@ -274,6 +274,13 @@ func Analyze(root string, cfg Config, churnByPath map[string]int) (Result, error
 		if isTest {
 			testFiles++
 			testLines += scan.code
+			// The per-language test tally. This was missing: langTests was
+			// declared and handed to buildLanguages but never incremented here,
+			// so every row of the language breakdown reported zero test files
+			// however many tests the repository had. Aggregate() has always
+			// counted them correctly, which is what made the two paths disagree
+			// and hid the omission -- only the analyze path showed the zeros.
+			langTests[lang]++
 		} else {
 			sourceFiles++
 		}
