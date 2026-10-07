@@ -92,6 +92,36 @@ RISKS (5)
       covers languages, per-file complexity, high-churn files, dependency
       manifests, and every risk with its evidence.
     </p>
+
+    <!--
+      A <video> player rather than the linked poster the README uses. GitHub
+      strips <video> out of markdown, but this is a served page with its own
+      CSP, so autoplay, controls and a real poster all work here. The two
+      surfaces deliberately differ because their renderers differ, not by
+      accident.
+    -->
+    <video
+      class="reel"
+      controls
+      muted
+      loop
+      playsinline
+      preload="metadata"
+      poster="/video/lensyxe-poster.jpg"
+      width="1280"
+      height="720"
+    >
+      <source src="/video/lensyxe.mp4" type="video/mp4" />
+      Your browser cannot play this MP4. The file is also at
+      <a href="/video/lensyxe.mp4">/video/lensyxe.mp4</a>.
+    </video>
+
+    <p class="note">
+      Twenty-one seconds, and every figure in it is a real measurement. The
+      tool computed 147 commits/week and then declined to score it, because
+      two days of history cannot establish a cadence. Everything else it
+      measured, it shows, with the threshold each one crossed.
+    </p>
   </div>
 </section>
 

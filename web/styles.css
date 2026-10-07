@@ -258,6 +258,41 @@ code {
   tab-size: 2;
 }
 
+/* The launch video, framed like the terminal above it so the hero reads as one
+   column of evidence rather than a video dropped into a page.
+
+   aspect-ratio rather than a height: the element reserves its box before the
+   mp4 loads, so nothing below it jumps when the video arrives. `display: block`
+   is load-bearing for the same reason -- an inline video sits on a text
+   baseline and leaves a few pixels of gap underneath. */
+.reel {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  margin-top: var(--s5);
+  border: var(--border) solid var(--rule-2);
+  border-radius: 4px;
+  /* The video's own frames are near-black (#020617). Without this the box is
+     white in the light scheme and reads as a hole before the poster loads. */
+  background: #020617;
+}
+
+/* The controls are the only affordance, so the focus ring has to be visible
+   against the video's own dark frames in both colour schemes. */
+.reel:focus-visible {
+  outline: 2px solid var(--fg-2);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The video is a `loop` element, and a loop is motion the visitor did not
+     ask for. Controls stay; the loop goes. Markup cannot express that, so it
+     is removed here. */
+  .reel { loop: false; }
+}
+
 .sub {
   font-size: var(--t19);
   color: var(--fg-2);

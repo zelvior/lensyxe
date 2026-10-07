@@ -25,6 +25,19 @@ a score you cannot trace to a line of code is a colour rather than an action.
 It runs entirely on your machine. There is no telemetry, no account, and no
 upload. The same tree always produces the same score.
 
+<a href="assets/video/lensyxe.mp4" target="_blank" rel="noopener">
+  <img src="assets/video/lensyxe-poster.jpg" alt="Lensyxe launch video: the tool computes 147 commits/week and refuses to score it, because two days of history is not a cadence." width="640" />
+</a>
+
+<!--
+  A linked poster rather than a <video> element, because GitHub's markdown
+  sanitizer strips <video> to an empty paragraph. Verified against GitHub's own
+  rendering API (POST /markdown) rather than assumed: the tag came back as
+  <p dir="auto"></p>, including inside <details>. Clicking the poster opens the
+  file; every thumbnail generator that grabs the poster gets frame 0, which is
+  the same frame by construction.
+-->
+
 ```
 lensyxe 0.3.0  engineering intelligence
 path    /home/you/widget

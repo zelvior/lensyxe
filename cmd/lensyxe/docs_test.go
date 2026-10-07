@@ -119,13 +119,24 @@ func TestReadmeImagesExist(t *testing.T) {
 
 	imgRe := regexp.MustCompile(`<img[^>]+src="([^"]+)"`)
 	mdRe := regexp.MustCompile(`!\[[^\]]*\]\(([^)\s]+)\)`)
+	// A raw-HTML href, which the markdown link regex above cannot see.
+	//
+	// The README's launch video is a linked poster: an <a href> wrapping an
+	// <img src>. The img half was already covered, but the href was not, so
+	// deleting or renaming the mp4 would have left the poster rendering as a
+	// clickable image pointing at nothing and no test would have complained.
+	// A broken video link is exactly the kind of defect that survives review,
+	// because the README still looks right.
+	hrefRe := regexp.MustCompile(`<a[^>]+href="([^"]+)"`)
 
-	for _, re := range []*regexp.Regexp{imgRe, mdRe} {
+	for _, re := range []*regexp.Regexp{imgRe, mdRe, hrefRe} {
 		for _, m := range re.FindAllStringSubmatch(readme, -1) {
 			src := m[1]
 			if strings.HasPrefix(src, "http://") ||
 				strings.HasPrefix(src, "https://") ||
-				strings.HasPrefix(src, "data:") {
+				strings.HasPrefix(src, "data:") ||
+				strings.HasPrefix(src, "mailto:") ||
+				strings.HasPrefix(src, "#") {
 				continue
 			}
 			// The banner may legitimately appear more than once: it is the

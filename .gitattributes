@@ -51,6 +51,11 @@ dashboard/package-lock.json -diff
 *.png binary
 *.jpg binary
 *.ico binary
+# The launch video linked from the README. Declared binary for the same reason
+# as the images above: `* text=auto eol=lf` below lets git classify files itself,
+# and a file it guesses wrong about is a file whose bytes change on someone
+# else's checkout.
+*.mp4 binary
 *.woff binary
 *.woff2 binary
 *.zip binary
