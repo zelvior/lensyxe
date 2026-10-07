@@ -28,8 +28,9 @@ const configFileName = ".lensyxe.yml"
 // run twice without checking.
 func newSetupCmd(a *app) *cobra.Command {
 	var (
-		write bool
-		force bool
+		write    bool
+		force    bool
+		headless bool
 	)
 
 	cmd := &cobra.Command{
@@ -54,6 +55,24 @@ configuration keys; they are printed as a command line instead.`),
 			target, err := filepath.Abs(resolved.Target)
 			if err != nil {
 				return fmt.Errorf("resolve %s: %w", resolved.Target, err)
+			}
+
+			// --headless exists for a server or container with no terminal to
+			// draw on. It takes every default and refuses to prompt, so a
+			// non-interactive run cannot hang waiting for a keypress. Requiring
+			// --write alongside it is deliberate: a proposal nobody reads, on a
+			// machine nobody is watching, is not setup.
+			if headless {
+				if !write {
+					return fmt.Errorf(
+						"--headless requires --write: with nobody to read a proposal, " +
+							"setup must write the file or do nothing")
+				}
+				// Anything still goes to stdout, which a container log captures.
+				// The proposal is printed as well as written so the run is
+				// auditable after the fact.
+				fmt.Fprintln(cmd.ErrOrStderr(),
+					"lensyxe: headless setup: writing derived configuration")
 			}
 
 			snap, err := analyzer.Scan(cmd.Context(), scanConfig(resolved), Version)
@@ -91,6 +110,9 @@ configuration keys; they are printed as a command line instead.`),
 		},
 	}
 
+	cmd.Flags().BoolVar(&headless, "headless", false,
+		"non-interactive mode for servers and containers: take every default and "+
+			"never prompt. Requires --write, because there is nobody to read a proposal")
 	cmd.Flags().BoolVar(&write, "write", false, "write the proposal to "+configFileName)
 	cmd.Flags().BoolVar(&force, "force", false,
 		"replace an existing "+configFileName+" (the old file is overwritten, not merged)")

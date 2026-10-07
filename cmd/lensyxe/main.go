@@ -116,6 +116,7 @@ Everything runs locally. No source code leaves your machine.`),
 	root.AddCommand(newDecayCmd(a))
 	root.AddCommand(newTopologyCmd(a))
 	root.AddCommand(newGapCmd(a))
+	root.AddCommand(newInstallerCmd(a))
 	root.AddCommand(newCompareCmd(a))
 	root.AddCommand(newHistoryCmd(a))
 	root.AddCommand(newWatchCmd(a))

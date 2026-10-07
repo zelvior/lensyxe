@@ -17,6 +17,76 @@ workflow does that, so the claim was removed rather than left standing.
 
 ### Added
 
+- **`lensyxe-gui`** — a six-step setup wizard: welcome and license, install
+  path, shell integration, background server, config generation, and a review
+  before anything is applied. It renders in the terminal and takes **no
+  third-party dependencies**.
+- **`lensyxe installer`** — PATH registration, shell startup files, and a
+  freedesktop.org launcher, with `--remove` to undo all of it.
+- **`lensyxe setup --headless`** — non-interactive setup for servers and
+  containers. Requires `--write`, because with nobody to read a proposal setup
+  must write the file or do nothing.
+- **Native packages** — `.deb` and `.rpm` via goreleaser's `nfpms` target, and a
+  Windows `LensyxeSetup.exe` from `build/desktop/win/nsis.nsi`.
+- **`docs/DISTRIBUTION.md`** — the four install routes and why each is shaped the
+  way it is.
+
+### Why the wizard is not a window
+
+Fyne and Wails both conflict with this project's published guarantee of
+zero-dependency installation. Either would take `go.mod` from ten direct
+dependencies to hundreds, require cgo and a native toolchain on every one of the
+six platforms in the release matrix, and add a Node toolchain to the pipeline —
+which would break the `CGO_ENABLED=0` cross-compile that lets one runner produce
+all six binaries.
+
+So `internal/gui` holds the platform-independent step model with no rendering and
+no platform calls, and both frontends render it: `lensyxe-gui` as a terminal
+program, `lensyxe setup --headless` for machines with no terminal. They share one
+model, so they cannot disagree about what an install does. A native frontend added
+later is a shell around these decisions rather than a second implementation of
+them.
+
+### Every change is reversible and marked
+
+Shell startup entries are wrapped in sentinels, so removal is exact rather than
+best-effort. A test asserts that install-then-remove restores the original file
+**byte for byte**, including the blank line separating the block — otherwise
+repeated cycles leave a growing run of empty lines. Installing twice adds nothing,
+an entry the user wrote themselves is never duplicated, and an install
+interrupted between the sentinels is still removable.
+
+**Windows PATH is not set with `setx PATH`.** `setx` truncates its value at 1024
+characters and reports success while doing it, silently discarding everything
+past that point. The generated command uses the .NET environment API, which has no
+such limit, and it is printed rather than executed so it can be read before it
+runs.
+
+### The plan is shown before anything happens
+
+`BuildPlan` computes the full set of actions — including what it would modify, what
+it cannot undo, and what needs privileges — from a `Choices` value and an `Env`
+probe. Nothing is written until the user confirms. A test asserts that planning
+does not touch the filesystem, so a dry run is a real code path rather than a
+promise.
+
+### Where this reverses an earlier decision
+
+`.goreleaser.yaml` previously recorded a decision against `.deb` and `.rpm`,
+holding that a stale package is worse than no package because users would install
+an old version from a repository instead of a checksummed release. That is still
+true, and it is why **no distribution repository is configured**: a package that
+exists only on the release page cannot go stale in a repository, because there is
+no repository. The `.deb` also carries no maintainer scripts — a `postinst` that
+rewrites PATH is how a package manager ends up fighting an installer over the same
+file.
+
+There is **no goreleaser `dmg` target**, on purpose: goreleaser cannot sign a disk
+image, and an unsigned `.dmg` is blocked by Gatekeeper on current macOS, so
+shipping one would produce an artifact that looks broken rather than one that
+looks unsigned. `build/desktop/mac/build.sh` assembles and signs it on a macOS
+runner with a Developer ID.
+
 - **`lensyxe gap`** — joins what the code looks like to what actually ran, and
   reports the difference in three sections: critical path hotspots (complicated
   code that executes), deprioritized debt (complicated code that does not), and

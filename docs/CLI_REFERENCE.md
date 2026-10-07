@@ -16,6 +16,7 @@ help output is correct and this file is stale.
 - [`lensyxe decay`](#lensyxe-decay)
 - [`lensyxe topology`](#lensyxe-topology)
 - [`lensyxe gap`](#lensyxe-gap)
+- [`lensyxe installer`](#lensyxe-installer)
 - [`lensyxe compare`](#lensyxe-compare)
 - [`lensyxe history`](#lensyxe-history)
 - [`lensyxe watch`](#lensyxe-watch)
@@ -167,6 +168,7 @@ lensyxe setup [path] [flags]
 | :--- | :--- | :--- |
 | `--write` | `false` | Write the proposal to `.lensyxe.yml`. |
 | `--force` | `false` | Replace an existing `.lensyxe.yml`. The old file is overwritten, not merged. |
+| `--headless` | `false` | Non-interactive: take every default and never prompt. Requires `--write`. |
 
 The documented configuration file is a template: it lists every key with its
 default. A template cannot know that this repository has a Rust `target`
@@ -218,6 +220,19 @@ one setting.
 
 Rendering is byte-identical across runs on an unchanged repository, so
 re-running it does not produce a diff.
+
+### `--headless` for servers and containers
+
+`--headless` takes every default and never prompts, so a non-interactive run
+cannot hang waiting for a keypress. It **requires `--write`**: with nobody to read
+a proposal, `setup` must write the file or do nothing. A run on a machine nobody
+is watching that only prints to a void is not setup.
+
+The proposal is still printed, so a headless run is auditable after the fact.
+
+The full six-step wizard, with prompts and a health check, is a separate binary —
+`lensyxe-gui`. Both share one step model in `internal/gui`, so they cannot
+disagree about what an install does. See [Distribution](DISTRIBUTION.md).
 
 ## Git-style aliases
 
@@ -580,6 +595,70 @@ output says so.
 
 A profile is a sample of **one window**, not a description of the program. Nothing
 here forecasts demand.
+
+## `lensyxe installer`
+
+Add or remove the OS integration an installation needs: PATH registration, shell
+startup files, and a desktop launcher.
+
+```
+lensyxe installer [flags]
+```
+
+| Flag | Default | Description |
+| :--- | :--- | :--- |
+| `--remove` | `false` | Remove the PATH entry instead of adding it. |
+| `--dry-run` | `false` | Report what would change without writing. |
+| `--yes` | `false` | Apply without prompting. |
+| `--dir <path>` | per-user location | Installation directory. |
+| `--shell <name>` | detected | `bash`, `zsh`, or `fish`. |
+| `--desktop` | `false` | Also install a freedesktop.org launcher (Linux). |
+
+Without `--yes` or `--dry-run` this **reports what it would change and stops**.
+
+### Everything added is removable, exactly
+
+Shell startup entries are wrapped in sentinels:
+
+```
+# >>> lensyxe >>>
+export PATH="/home/u/.local/bin:$PATH"
+# <<< lensyxe <<<
+```
+
+Removal deletes the block between them and nothing else. A test asserts that
+install-then-remove restores the original file **byte for byte**, including the
+blank line separating the block — otherwise repeated cycles leave a growing run of
+empty lines.
+
+Three consequences worth stating:
+
+- **Installing twice adds nothing.** A file that already contains the block, or
+  already lists the directory by any other means, is left alone.
+- **An entry you wrote yourself is never duplicated.** A commented-out mention is
+  not treated as an entry, because documenting a past PATH change is not the same
+  as having one.
+- **An install interrupted between the sentinels is still removable.** A begin
+  marker with no end marker removes to end-of-file rather than leaving a file
+  nobody can repair.
+
+### Why not `setx`
+
+The Windows PATH command does **not** use `setx PATH`. `setx` truncates its value
+at 1024 characters, so on a machine with a long PATH it silently discards the
+entries beyond that point — a destructive edit that still reports success. The
+command uses the .NET environment API, which has no such limit, and it is
+*rendered* rather than executed so you can read it before it runs.
+
+Removal filters by full path comparison rather than string replacement, so a
+directory that is a prefix of another (`C:\tools\lensyxe` and
+`C:\tools\lensyxe-extras`) is not removed along with it.
+
+### Scopes
+
+The default is per-user, which needs no privileges and touches nothing outside
+your home directory. `--remove` always operates on the user scope: a system-wide
+PATH entry lives in a machine profile this tool will not edit unasked.
 
 ## `lensyxe compare`
 

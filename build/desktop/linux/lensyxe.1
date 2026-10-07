@@ -1,0 +1,117 @@
+# man page for lensyxe.
+# Rendered into a roff file at package time by `go run ./internal/...`-free
+# tooling; this is the source.
+#
+# Written by hand rather than generated. A man page generator is a dependency, and
+# the page for a tool with eleven subcommands is a page, not a book.
+
+.TH LENSYXE 1 "2026" "lensyxe" "User Commands"
+.SH NAME
+lensyxe \- score the engineering health of a repository
+.SH SYNOPSIS
+.B lensyxe
+.RI [ command ]
+.RI [ arguments ]
+.RI [ flags ]
+.SH DESCRIPTION
+.B lensyxe
+analyzes a source tree and reports an Engineering Health Score from code
+complexity, dependency hygiene, and git history. Every figure is computed locally;
+the only outbound request the tool can make is the optional
+.B \-\-explain
+layer, and it is off unless configured.
+.SH COMMANDS
+.TP
+.B analyze
+Score a repository. The main entry point.
+.TP
+.B status
+The same analysis in a few lines. Does not record a run to the history database.
+.TP
+.B setup
+Propose a
+.I .lensyxe.yml
+derived from a measurement of this repository. Nothing is written without
+.BR \-\-write .
+With
+.B \-\-headless
+it takes every default and never prompts, for servers and containers.
+.TP
+.B installer
+Add or remove shell, PATH, and application integration.
+.TP
+.B blast
+Files that historically changed in the same commit as the ones being changed.
+.TP
+.B cognitive
+A 0-100 friction index from variable lifetime, call density, and scope depth.
+.TP
+.B decay
+Files that stopped changing, single-author silos, and activity half-life.
+.TP
+.B topology
+Recency-weighted bus factor, hidden co-change coupling, boundary violations.
+.TP
+.B gap
+Static complexity against real runtime execution, from a pprof, OTel export, or
+access log.
+.TP
+.B diff
+Compare engineering health between two commits.
+.B log
+is an alias.
+.TP
+.B history
+The recorded health timeline.
+.B log
+is an alias.
+.TP
+.B watch
+Re-analyze on every change.
+.TP
+.B serve
+The local dashboard and JSON API.
+.B ui
+is an alias.
+.TP
+.B version
+Build metadata.
+.SH OPTIONS
+.TP
+.B \-\-config
+Path to a Lensyxe configuration file.
+.TP
+.B \-\-version
+Print the version and exit.
+.SH EXIT STATUS
+.TP
+.B 0
+Clean.
+.TP
+.B 1
+A finding prevented completion.
+.TP
+.B 2
+A configured threshold was breached.
+.SH FILES
+.TP
+.I .lensyxe.yml
+Per-repository configuration. Every key is optional; see
+.IR docs/CONFIGURATION.md .
+.TP
+.I ~/.config/lensyxe/history.db
+The local health history. SQLite, on this machine only.
+.SH ENVIRONMENT
+.TP
+.B LENSYXE_AI_KEY
+Holds the key for the optional explanation layer. Lensyxe never reads it unless
+explanation is requested.
+.TP
+.B LENSYXE_AI_PROVIDER
+.BR openrouter ", " openai ", or " gemini .
+.SH SEE ALSO
+Full documentation:
+.UR https://github.com/zelvior/lensyxe
+.UE
+.SH LICENSE
+MIT.

@@ -98,6 +98,19 @@ curl -sSL https://raw.githubusercontent.com/zelvior/lensyxe/main/install.sh | ba
 The installer detects your platform, verifies the download against the release's
 SHA-256 `checksums.txt`, and refuses to continue on a mismatch.
 
+Prefer a guided install? `lensyxe-gui` is a six-step wizard that registers PATH,
+offers a background server, writes a starter config, and shows you the whole plan
+before applying any of it. It runs in your terminal and needs no extra
+dependencies:
+
+```bash
+lensyxe-gui
+```
+
+Packages are also published for machines that expect one — `.deb`, `.rpm`, and a
+Windows `LensyxeSetup.exe`. See [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) for
+all four install routes and how to undo each one.
+
 Pin a release, or install into your home directory instead of
 `/usr/local/bin`:
 

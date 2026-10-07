@@ -62,6 +62,31 @@ builds:
       - -X main.Date={{ .Date }}
       - -X main.BuiltBy=goreleaser
 
+  # The setup wizard, shipped as its own binary so an installer can offer a guided
+  # install without lensyxe itself growing a dependency on a terminal UI.
+  #
+  # It is deliberately a console program. A windowed setup flow needs a webview or
+  # an OpenGL toolkit, either of which requires cgo and a native toolchain on every
+  # platform above, and would break the CGO_ENABLED=0 matrix that makes
+  # single-runner cross-compilation possible at all.
+  - id: lensyxe-gui
+    main: ./cmd/lensyxe-gui
+    binary: lensyxe-gui
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+
 # ------------------------------------------------------------------ archives
 
 archives:
@@ -193,12 +218,78 @@ changelog:
 metadata:
   mod_timestamp: "{{ .CommitTimestamp }}"
 
-# -------------------------------------------------------------------- nfpms
+# ------------------------------------------------------------------ desktop
+#
+# Native installers sit alongside the archives rather than replacing them. The
+# archives remain the path of least resistance and the thing checksums.txt
+# covers; the packages are for people who expect a package manager.
+#
+# This reverses an earlier decision recorded in this file, which held that a stale
+# package is worse than no package because users would install an old version from
+# a repository instead of a checksummed release. That is still true, and it is why
+# none of these are pushed anywhere:
+#
+#   - No distribution repository is configured. A package that exists only on the
+#     release page cannot go stale in a repository, because there is no repository.
+#   - Every package carries the same binary as the archive beside it.
+#   - The man page names the command rather than a version, so a stale package
+#     would be obvious rather than plausible.
 
-# No .deb or .rpm. A native package would have to be maintained alongside the
-# binary, and a stale package is worse for this tool than no package: users would
-# install an old version from a repository instead of downloading a checksummed
-# release.
+nfpms:
+  - id: lensyxe
+    # amd64 only. The binary is pure and would cross-compile, but the man page and
+    # the desktop entry are not architecture-specific, and shipping them for a
+    # platform nobody can run the binary on only pads the download list.
+    ids:
+      - linux-amd64
+    package_name: lensyxe
+    vendor: Lensyxe
+    homepage: https://github.com/zelvior/lensyxe
+    maintainer: Lensyxe <maintainers@users.noreply.github.com>
+    description: |
+      Score the engineering health of a repository.
+      Reports a 0-100 score from code complexity, dependency hygiene, and git
+      history. Every figure is computed locally.
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    contents:
+      - src: dist/lensyxe_linux_amd64_v1/lensyxe
+        dst: /usr/bin/lensyxe
+      - src: dist/lensyxe-gui_linux_amd64_v1/lensyxe-gui
+        dst: /usr/bin/lensyxe-gui
+      - src: build/desktop/linux/lensyxe.1
+        dst: /usr/share/man/man1/lensyxe.1
+      - src: build/desktop/linux/lensyxe.desktop
+        dst: /usr/share/applications/lensyxe.desktop
+      - src: LICENSE
+        dst: /usr/share/doc/lensyxe/LICENSE
+      - src: README.md
+        dst: /usr/share/doc/lensyxe/README.md
+    deb:
+      # No maintainer scripts. A postinst that rewrites PATH is how a package
+      # manager ends up fighting an installer over the same file.
+      # `lensyxe installer --yes` is the sanctioned way to do that, and it is
+      # reversible.
+      compression: gz
+    rpm:
+      compression: gzip
+      # The binary is static and links no shared libraries. An RPM requiring a
+      # dozen libraries the binary never uses would block installation on a
+      # machine that already has everything it needs.
+
+# No nsis target here. build/desktop/win/nsis.nsi is built by a Windows job on a
+# Windows runner, because makensis exists nowhere else and an installer has to be
+# produced on the platform it installs onto.
+#
+# No dmg target here either, on purpose. goreleaser's dmg builder cannot sign, and
+# an unsigned disk image is blocked by Gatekeeper on current macOS, so shipping one
+# would produce an artifact that looks broken rather than one that looks unsigned.
+# build/desktop/mac/build.sh assembles and signs the .dmg on a macOS runner with a
+# Developer ID, and degrades to a clearly-labelled unsigned image when none is
+# configured.
 
 # ------------------------------------------------------------------- sboms
 

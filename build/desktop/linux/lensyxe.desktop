@@ -1,0 +1,37 @@
+# Lensyxe desktop entry.
+#
+# Installed to /usr/share/applications by the .deb and .rpm, and to
+# ~/.local/share/applications by `lensyxe installer --desktop` for a per-user
+# install.
+#
+# The Exec line runs the setup wizard rather than the dashboard, because a fresh
+# install's first useful screen is the one that registers PATH and writes a
+# config. The dashboard is a terminal command, not a window: this is a command-line
+# tool and presenting it as a GUI application would misrepresent it.
+
+[Desktop Entry]
+Type=Application
+Name=Lensyxe
+GenericName=Engineering Health
+Comment=Score the engineering health of a repository
+Exec=lensyxe-gui
+TryExec=lensyxe-gui
+Icon=lensyxe
+Categories=Development;IDE;
+Terminal=true
+Keywords=engineering;health;metrics;repository;static analysis;
+StartupNotify=false
+# Comment this out on distributions that do not install the man pages.
+MimeType=inode/directory;
+
+[Desktop Action Dashboard]
+Name=Open the Lensyxe dashboard
+Exec=lensyxe serve --open
+
+[Desktop Action Analyze]
+Name=Analyze this folder
+Exec=lensyxe analyze .
+
+[Desktop Action Status]
+Name=Show health status
+Exec=lensyxe status .
