@@ -29,6 +29,14 @@ upload. The same tree always produces the same score.
   <img src="assets/video/lensyxe-poster.jpg" alt="Lensyxe launch video: the tool computes 147 commits/week and refuses to score it, because two days of history is not a cadence." width="640" />
 </a>
 
+<a href="https://lensyxe-site.vercel.app/video/lensyxe-detailed.mp4" target="_blank" rel="noopener">
+  <img src="assets/video/lensyxe-detailed-poster.jpg" alt="Lensyxe detailed cut: the score, the risk evidence, the three exit codes, and the two flags it answers with not supported." width="640" />
+</a>
+
+*60 seconds. The same argument at length — the full report, the risk evidence,
+the three exit codes, and the two flags the tool answers with "not supported".
+The cut above is the one to share.*
+
 <!--
   Two decisions here, both checked rather than assumed.
 

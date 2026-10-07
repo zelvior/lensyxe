@@ -293,6 +293,52 @@ code {
   .reel { loop: false; }
 }
 
+/* The longer cut. A quiet link rather than a second <video>, because two
+   players stacked in one hero makes the page a video gallery and buries the
+   thing it is actually for. The 21s one autoplays; this one waits to be asked
+   for. */
+.alt-cut {
+  margin-top: var(--s5);
+  padding-top: var(--s4);
+  border-top: var(--border) solid var(--rule);
+}
+
+.alt-cut a {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.alt-label {
+  display: block;
+  font-size: var(--t16);
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.alt-desc {
+  display: block;
+  margin-top: var(--s1);
+  font-size: var(--t14);
+  line-height: 1.55;
+  color: var(--fg-2);
+  max-width: 46rem;
+}
+
+/* The underline is the affordance that says "this goes somewhere", and it is
+   only correct while the pointer is actually over the link. */
+.alt-cut a:hover .alt-label,
+.alt-cut a:focus-visible .alt-label {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.alt-cut a:focus-visible {
+  outline: 2px solid var(--fg-2);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
 .sub {
   font-size: var(--t19);
   color: var(--fg-2);
