@@ -321,18 +321,26 @@ type ChurnEntry struct {
 // GitStats is the output of the git analyzer. It is the zero value (with
 // IsRepository=false) for directories that are not under version control.
 type GitStats struct {
-	IsRepository     bool         `json:"is_repository"`
-	Branch           string       `json:"branch"`
-	HeadCommit       string       `json:"head_commit"`
-	TotalCommits     int          `json:"total_commits"`
-	WindowDays       int          `json:"window_days"`
-	WindowCommits    int          `json:"window_commits"`
-	Authors          int          `json:"authors"`
-	BusFactor        int          `json:"bus_factor"` // authors with >=20% of window commits
-	FirstCommitAt    time.Time    `json:"first_commit_at"`
-	LastCommitAt     time.Time    `json:"last_commit_at"`
-	DaysSinceCommit  int          `json:"days_since_commit"`
-	CommitsPerWeek   float64      `json:"commits_per_week"` // window commits extrapolated to a week
+	IsRepository    bool      `json:"is_repository"`
+	Branch          string    `json:"branch"`
+	HeadCommit      string    `json:"head_commit"`
+	TotalCommits    int       `json:"total_commits"`
+	WindowDays      int       `json:"window_days"`
+	WindowCommits   int       `json:"window_commits"`
+	Authors         int       `json:"authors"`
+	BusFactor       int       `json:"bus_factor"` // authors with >=20% of window commits
+	FirstCommitAt   time.Time `json:"first_commit_at"`
+	LastCommitAt    time.Time `json:"last_commit_at"`
+	DaysSinceCommit int       `json:"days_since_commit"`
+	CommitsPerWeek  float64   `json:"commits_per_week"` // window commits over the history that exists
+	// CadenceSpanDays is the denominator used for CommitsPerWeek: the shorter of
+	// WindowDays and the repository's own age in days.
+	//
+	// It is reported so a reader can see what the rate was measured over.
+	// CommitsPerWeek without it is an unauditable number -- the same value means
+	// different things depending on whether the repository is nine months old or
+	// nine hours old.
+	CadenceSpanDays  int          `json:"cadence_span_days"`
 	LinesAdded       int          `json:"lines_added"`
 	LinesDeleted     int          `json:"lines_deleted"`
 	TopAuthorShare   float64      `json:"top_author_share"`   // 0..1 share of the busiest author

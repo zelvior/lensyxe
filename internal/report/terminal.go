@@ -223,7 +223,21 @@ func writeGitSection(b *strings.Builder, g models.GitStats) {
 	row(b, "branch", fmt.Sprintf("%s @ %s", branch, g.HeadCommit))
 	row(b, "commits", fmt.Sprintf("%d total / %d in last %d days",
 		g.TotalCommits, g.WindowCommits, g.WindowDays))
-	row(b, "cadence", fmt.Sprintf("%.1f commits per week", g.CommitsPerWeek))
+	// The span is printed with the rate because the rate alone is not auditable:
+	// 266 commits/week measured over one day and 266 commits/week measured over a
+	// year are the same number and mean opposite things.
+	//
+	// A zero span means the depth was not recorded, not that the repository has
+	// no history, so it gets no caveat rather than a misleading one.
+	cadence := fmt.Sprintf("%.1f commits per week", g.CommitsPerWeek)
+	if g.CadenceSpanDays > 0 {
+		cadence += fmt.Sprintf(" over %d day(s) of history", g.CadenceSpanDays)
+		if g.CadenceSpanDays < metrics.MinCadenceSpanDays {
+			cadence += fmt.Sprintf("  (too short to judge a cadence; %d-day minimum)",
+				metrics.MinCadenceSpanDays)
+		}
+	}
+	row(b, "cadence", cadence)
 	row(b, "authors", fmt.Sprintf("%d authors, bus factor %d, top author share %.0f%%",
 		g.Authors, g.BusFactor, g.TopAuthorShare*100))
 	row(b, "last commit", fmt.Sprintf("%s (%d days ago)",

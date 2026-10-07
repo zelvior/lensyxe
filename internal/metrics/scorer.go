@@ -55,7 +55,21 @@ const (
 	// Git / maintainability
 	IdealCommitsPerWeek = 8.0
 	LowCadenceFloor     = 0.5 // commits/week below which cadence scores zero
-	StaleDaysPenalty    = 180 // days since last commit at which freshness hits zero
+
+	// MinCadenceSpanDays is the history depth below which a commits-per-week figure
+	// is not a cadence.
+	//
+	// A week is not a cadence, and a day is not either. A repository created
+	// yesterday with 38 commits has a true rate of 266 commits/week and no
+	// meaningful cadence at all: scoring that rate at face value would award full
+	// marks to every freshly generated repository, which is the mirror image of the
+	// bug it replaces -- a low reading on a young project is a statement about the
+	// measurement, not about the team.
+	//
+	// Four weeks is the floor because that is the shortest span over which a weekly
+	// rate has more than one week to average over.
+	MinCadenceSpanDays = 28
+	StaleDaysPenalty   = 180 // days since last commit at which freshness hits zero
 	// ChurnConcentrationThreshold is the normalized churn concentration at
 	// which the churn component of the git score hits zero.
 	ChurnConcentrationThreshold = 0.6
@@ -289,14 +303,26 @@ func scoreGit(g models.GitStats) models.Metric {
 
 	// Component 1: commit cadence. Full credit from LowCadenceFloor up to
 	// IdealCommitsPerWeek; zero below the floor.
+	//
+	// Withheld, not scored, when the history is too short to support a weekly
+	// rate. Withholding rather than defaulting to a neutral score is deliberate:
+	// this package already declines to report a decay half-life under 180 days
+	// and a bus-factor risk under 90, and a cadence verdict belongs to that
+	// family. The remaining three components are renormalized so the metric still
+	// means something.
+	cadenceWeight := 0.30
+	cadenceKnown := g.CadenceSpanDays >= MinCadenceSpanDays
 	cadenceScore := 100.0
-	if g.CommitsPerWeek < IdealCommitsPerWeek {
+	if cadenceKnown && g.CommitsPerWeek < IdealCommitsPerWeek {
 		if g.CommitsPerWeek <= LowCadenceFloor {
 			cadenceScore = 0
 		} else {
 			span := IdealCommitsPerWeek - LowCadenceFloor
 			cadenceScore = 100 * ((g.CommitsPerWeek - LowCadenceFloor) / span)
 		}
+	}
+	if !cadenceKnown {
+		cadenceWeight = 0
 	}
 
 	// Component 2: freshness. Full credit for a commit inside the window,
@@ -321,10 +347,35 @@ func scoreGit(g models.GitStats) models.Metric {
 		busScore = 100 * (1 - BusFactorPenalty)
 	}
 
-	m.Score = round2(clamp(0.30*cadenceScore+0.25*freshnessScore+
-		0.25*churnScore+0.20*busScore, 0, 100))
-	m.Detail = fmt.Sprintf("cadence %.0f, freshness %.0f, churn %.0f, bus factor %d",
-		cadenceScore, freshnessScore, churnScore, g.BusFactor)
+	// Renormalize over the components that are applicable, so a withheld
+	// component neither inflates nor deflates the result. Dividing by a weight
+	// of zero would be a division by zero, which is what the gate above prevents.
+	total := cadenceWeight + 0.25 + 0.25 + 0.20
+	blended := cadenceWeight*cadenceScore + 0.25*freshnessScore +
+		0.25*churnScore + 0.20*busScore
+	m.Score = round2(clamp(blended/total, 0, 100))
+
+	if !cadenceKnown {
+		// The reason has to be in the output. A score that quietly improved
+		// because a component was dropped is indistinguishable from gaming, and
+		// the reader cannot audit a number they were not told the shape of.
+		reason := fmt.Sprintf("%d day(s) of history is under the %d-day minimum",
+			g.CadenceSpanDays, MinCadenceSpanDays)
+		if g.CadenceSpanDays <= 0 {
+			// Zero means the depth was never recorded, which is a different
+			// statement from "this repository is too young to judge".
+			reason = "the history depth was not recorded"
+		}
+		m.Detail = fmt.Sprintf(
+			"cadence not judged: %s, so %0.1f commits/week cannot be read as a "+
+				"cadence. Remaining signals: freshness %.0f, churn %.0f, "+
+				"bus factor %.0f",
+			reason, g.CommitsPerWeek, freshnessScore, churnScore, busScore)
+	}
+	if cadenceKnown {
+		m.Detail = fmt.Sprintf("cadence %.0f, freshness %.0f, churn %.0f, bus factor %d",
+			cadenceScore, freshnessScore, churnScore, g.BusFactor)
+	}
 	return m
 }
 

@@ -56,6 +56,103 @@ const (
 	functionFilename = 4
 )
 
+// nextTag reads the next field header and returns the field number, wire type,
+// and remaining bytes. ok is false when the buffer is exhausted or the tag is
+// malformed.
+//
+// The sub-parsers below all share the same shape: read a tag, act on the few
+// fields they know, skip everything else, and stop cleanly at the first byte
+// they cannot read. Hoisting the two error paths into helpers is what keeps
+// those loops flat; inline, each one costs two levels of nesting, and five
+// nested copies of the same error handling is what pushed parsePprof to a
+// nesting depth of ten.
+func nextTag(b []byte) (field, wire uint64, rest []byte, ok bool) {
+	field, wire, rest, err := readTag(b)
+	if err != nil {
+		return 0, 0, nil, false
+	}
+	return field, wire, rest, true
+}
+
+// skipUnknown advances past a field the caller does not recognise.
+func skipUnknown(b []byte, wire uint64) ([]byte, bool) {
+	rest, err := skipValue(b, wire)
+	return rest, err == nil
+}
+
+// readRepeated reads a repeated numeric field in either encoding: packed as a
+// length-delimited run of varints, or as individual varints.
+//
+// Both forms occur in real profiles. gogo/protobuf emits packed and other
+// encoders do not, and a decoder that handles only one reads a CPU profile as
+// empty. A truncated packed run returns the values read so far rather than
+// failing: the profile is still usable and the outer loop can continue.
+func readRepeated(b []byte, wire uint64) (values []uint64, rest []byte, ok bool) {
+	if wire == wireBytes {
+		pb, rest, err := readBytes(b)
+		if err != nil {
+			return nil, nil, false
+		}
+		var values []uint64
+		for len(pb) > 0 {
+			v, remaining, verr := readVarint(pb)
+			if verr != nil {
+				return values, rest, true
+			}
+			values = append(values, v)
+			pb = remaining
+		}
+		return values, rest, true
+	}
+	if wire == wireVarint {
+		v, rest, err := readVarint(b)
+		if err != nil {
+			return nil, nil, false
+		}
+		return []uint64{v}, rest, true
+	}
+	return nil, nil, false
+}
+
+// parseValueType decodes one ValueType submessage into its two string-table
+// indices.
+//
+// Extracted from the main decode loop because a nested loop inside a switch case
+// is what put parsePprof's nesting at ten, and because ValueType is a message in
+// its own right with its own schema.
+func parseValueType(b []byte) [2]int64 {
+	out := [2]int64{-1, -1}
+	for len(b) > 0 {
+		// `rest` rather than `b` on the left of the assignment: a `:=` here
+		// would declare a new b scoped to the loop body, leaving the loop
+		// condition testing the outer b that nothing advances, and the loop
+		// never terminates.
+		f, w, rest, ok := nextTag(b)
+		if !ok {
+			break
+		}
+		b = rest
+		if w != wireVarint {
+			b, ok = skipUnknown(b, w)
+			if !ok {
+				break
+			}
+			continue
+		}
+		v, rest2, verr := readVarint(b)
+		if verr != nil {
+			break
+		}
+		b = rest2
+		// Fields 1 and 2 are the type and unit; both optional, so an absent
+		// one stays -1 rather than resolving to string-table entry zero.
+		if f == 1 || f == 2 {
+			out[f-1] = int64(v)
+		}
+	}
+	return out
+}
+
 // loadPprof decodes a gzipped protobuf profile.
 func loadPprof(pathname string, data []byte) (*Profile, error) {
 	raw := data
@@ -121,37 +218,7 @@ func parsePprof(pathname string, raw []byte) (*Profile, error) {
 			}
 			raw = rest
 			// ValueType{1 type, 2 unit}, both string_table indices.
-			typ, unit := int64(-1), int64(-1)
-			for len(b) > 0 {
-				f, w, r, err := readTag(b)
-				if err != nil {
-					break
-				}
-				b = r
-				switch {
-				case f == 1 && w == wireVarint:
-					v, r2, err := readVarint(b)
-					if err != nil {
-						b = nil
-						break
-					}
-					typ, b = int64(v), r2
-				case f == 2 && w == wireVarint:
-					v, r2, err := readVarint(b)
-					if err != nil {
-						b = nil
-						break
-					}
-					unit, b = int64(v), r2
-				default:
-					var err error
-					b, err = skipValue(b, w)
-					if err != nil {
-						b = nil
-					}
-				}
-			}
-			sampleTypeIdx = append(sampleTypeIdx, [2]int64{typ, unit})
+			sampleTypeIdx = append(sampleTypeIdx, parseValueType(b))
 
 		case field == pprofSampleFld && wire == wireBytes:
 			b, rest, err := readBytes(raw)
@@ -336,41 +403,33 @@ type pprofFunc struct {
 func parseLocation(b []byte) pprofLoc {
 	var l pprofLoc
 	for len(b) > 0 {
-		f, w, r, err := readTag(b)
-		if err != nil {
+		f, w, rest, ok := nextTag(b)
+		if !ok {
 			return l
 		}
-		b = r
+		b = rest
 		switch {
 		case f == locationID && w == wireVarint:
-			v, r2, err := readVarint(b)
-			if err != nil {
+			v, rest2, verr := readVarint(b)
+			if verr != nil {
 				return l
 			}
-			l.id, b = v, r2
+			l.id, b = v, rest2
 		case f == locationLine && w == wireBytes:
-			lb, r2, err := readBytes(b)
-			if err != nil {
+			lb, rest2, berr := readBytes(b)
+			if berr != nil {
 				return l
 			}
-			b = r2
-			id := parseLineFunctionID(lb)
-			if id != 0 {
+			b = rest2
+			if id := parseLineFunctionID(lb); id != 0 {
 				l.fnIDs = append(l.fnIDs, id)
 			}
-		case f == locationLine && w == wireVarint:
-			// Unpacked encoding of a single Line. A Line is itself a message,
-			// so a bare varint here is not one; the value is skipped rather than
-			// reinterpreted.
-			_, r2, err := readVarint(b)
-			if err != nil {
-				return l
-			}
-			b = r2
 		default:
-			var err error
-			b, err = skipValue(b, w)
-			if err != nil {
+			// Includes a locationLine arriving as a bare varint. A Line is a
+			// message, so that encoding is not one; the value is stepped over
+			// rather than reinterpreted as a function id.
+			b, ok = skipUnknown(b, w)
+			if !ok {
 				return l
 			}
 		}
@@ -380,30 +439,25 @@ func parseLocation(b []byte) pprofLoc {
 
 func parseLineFunctionID(b []byte) uint64 {
 	for len(b) > 0 {
-		f, w, r, err := readTag(b)
-		if err != nil {
+		f, w, rest, ok := nextTag(b)
+		if !ok {
 			return 0
 		}
-		b = r
-		switch {
-		case f == lineFunctionID && w == wireVarint:
-			v, _, err := readVarint(b)
-			if err != nil {
+		b = rest
+		if w == wireVarint {
+			v, rest2, verr := readVarint(b)
+			if verr != nil {
 				return 0
 			}
-			return v
-		case f == lineNumber && w == wireVarint:
-			_, r2, err := readVarint(b)
-			if err != nil {
-				return 0
+			b = rest2
+			if f == lineFunctionID {
+				return v
 			}
-			b = r2
-		default:
-			var err error
-			b, err = skipValue(b, w)
-			if err != nil {
-				return 0
-			}
+			continue // lineNumber and any other scalar: consumed, not needed
+		}
+		b, ok = skipUnknown(b, w)
+		if !ok {
+			return 0
 		}
 	}
 	return 0
@@ -412,36 +466,30 @@ func parseLineFunctionID(b []byte) uint64 {
 func parseFunction(b []byte) pprofFunc {
 	var fn pprofFunc
 	for len(b) > 0 {
-		f, w, r, err := readTag(b)
-		if err != nil {
+		f, w, rest, ok := nextTag(b)
+		if !ok {
 			return fn
 		}
-		b = r
-		switch {
-		case f == functionID && w == wireVarint:
-			v, r2, err := readVarint(b)
-			if err != nil {
+		b = rest
+		if w != wireVarint {
+			b, ok = skipUnknown(b, w)
+			if !ok {
 				return fn
 			}
-			fn.id, b = v, r2
-		case f == functionName && w == wireVarint:
-			v, r2, err := readVarint(b)
-			if err != nil {
-				return fn
-			}
-			fn.name, b = int64(v), r2
-		case f == functionFilename && w == wireVarint:
-			v, r2, err := readVarint(b)
-			if err != nil {
-				return fn
-			}
-			fn.filename, b = int64(v), r2
-		default:
-			var err error
-			b, err = skipValue(b, w)
-			if err != nil {
-				return fn
-			}
+			continue
+		}
+		v, rest2, verr := readVarint(b)
+		if verr != nil {
+			return fn
+		}
+		b = rest2
+		switch f {
+		case functionID:
+			fn.id = v
+		case functionName:
+			fn.name = int64(v)
+		case functionFilename:
+			fn.filename = int64(v)
 		}
 	}
 	return fn
@@ -461,58 +509,31 @@ type pprofSample struct {
 func parseSample(b []byte) pprofSample {
 	var s pprofSample
 	for len(b) > 0 {
-		f, w, r, err := readTag(b)
-		if err != nil {
+		f, w, rest, ok := nextTag(b)
+		if !ok {
 			return s
 		}
-		b = r
-		switch {
-		case f == sampleLocationID && w == wireBytes:
-			pb, rest, err := readBytes(b)
-			if err != nil {
+		b = rest
+		switch f {
+		case sampleLocationID:
+			vals, rest, rok := readRepeated(b, w)
+			if !rok {
 				return s
+			}
+			s.locationIDs = append(s.locationIDs, vals...)
+			b = rest
+		case sampleValue:
+			vals, rest, rok := readRepeated(b, w)
+			if !rok {
+				return s
+			}
+			for _, v := range vals {
+				s.values = append(s.values, int64(v))
 			}
 			b = rest
-			for len(pb) > 0 {
-				v, remaining, err := readVarint(pb)
-				if err != nil {
-					break
-				}
-				s.locationIDs = append(s.locationIDs, v)
-				pb = remaining
-			}
-		case f == sampleLocationID && w == wireVarint:
-			v, r2, err := readVarint(b)
-			if err != nil {
-				return s
-			}
-			b = r2
-			s.locationIDs = append(s.locationIDs, v)
-		case f == sampleValue && w == wireBytes:
-			pb, r2, err := readBytes(b)
-			if err != nil {
-				return s
-			}
-			b = r2
-			for len(pb) > 0 {
-				v, rest, err := readVarint(pb)
-				if err != nil {
-					break
-				}
-				s.values = append(s.values, int64(v))
-				pb = rest
-			}
-		case f == sampleValue && w == wireVarint:
-			v, r2, err := readVarint(b)
-			if err != nil {
-				return s
-			}
-			b = r2
-			s.values = append(s.values, int64(v))
 		default:
-			var err error
-			b, err = skipValue(b, w)
-			if err != nil {
+			b, ok = skipUnknown(b, w)
+			if !ok {
 				return s
 			}
 		}

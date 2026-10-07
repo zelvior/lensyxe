@@ -109,6 +109,7 @@
     "last_commit_at": "2026-01-02T03:00:00Z",
     "days_since_commit": 1,
     "commits_per_week": 1.6,
+    "cadence_span_days": 90,
     "lines_added": 500,
     "lines_deleted": 120,
     "top_author_share": 0,

@@ -40,7 +40,7 @@ CODE
 GIT
   branch         main @ abc123def456
   commits        100 total / 20 in last 90 days
-  cadence        1.6 commits per week
+  cadence        1.6 commits per week over 90 day(s) of history
   authors        3 authors, bus factor 1, top author share 0%
   last commit    2026-01-02 (1 days ago)
   churn          +500 / -120 lines across 15 files, top-3 share 40.0%, concentration 0.20

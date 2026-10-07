@@ -253,11 +253,36 @@ func Analyze(ctx context.Context, root string, cfg Config) (Result, error) {
 			}
 		}
 	}
-	if cfg.WindowDays > 0 {
-		stats.CommitsPerWeek = round2(float64(stats.WindowCommits) * 7 / float64(cfg.WindowDays))
+	stats.CadenceSpanDays = cadenceSpan(cfg.WindowDays, stats.FirstCommitAt)
+	if stats.CadenceSpanDays > 0 {
+		stats.CommitsPerWeek = round2(
+			float64(stats.WindowCommits) * 7 / float64(stats.CadenceSpanDays))
 	}
 
 	return Result{Stats: stats, Findings: buildFindings(stats, cfg), ChurnByPath: churnByPath}, nil
+}
+
+// cadenceSpan returns the denominator for a commits-per-week figure: the
+// shorter of the configured window and the age of the repository's own history.
+//
+// Dividing by the window alone is a false number for any young repository. A
+// project with 38 commits in its first day reported 2.96 commits/week under a
+// 90-day window, because 38*7/90 averages over 89 days on which nothing
+// happened. The figure was not slow, it was wrong -- and a low cadence reading on
+// a project created yesterday is a finding about the measurement, not about the
+// team.
+//
+// Today counts as a full day rather than as zero, so a repository with one day
+// of history does not divide by zero.
+func cadenceSpan(windowDays int, firstCommit time.Time) int {
+	span := windowDays
+	if !firstCommit.IsZero() {
+		sinceFirst := int(time.Since(firstCommit).Hours()/24) + 1
+		if sinceFirst > 0 && sinceFirst < span {
+			span = sinceFirst
+		}
+	}
+	return span
 }
 
 // churnLookup builds the path -> added+deleted map used for hotspot

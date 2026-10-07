@@ -58,7 +58,11 @@ func sampleSnapshot() *models.Snapshot {
 			IsRepository: true, Branch: "main", HeadCommit: "abc123def456",
 			TotalCommits: 100, WindowCommits: 20, WindowDays: 90, Authors: 3,
 			BusFactor: 1, DaysSinceCommit: 1, CommitsPerWeek: 1.6,
-			LinesAdded: 500, LinesDeleted: 120, ChurnFiles: 15,
+			// The rate's denominator. A fixture that leaves this at zero models an
+			// analyzer that never recorded it, which is not what the analyzer does
+			// and would render the line without the span a reader needs.
+			CadenceSpanDays: 90,
+			LinesAdded:      500, LinesDeleted: 120, ChurnFiles: 15,
 			ChurnHotspotRate: 0.4, ChurnConcentration: 0.2,
 			Churn:        []models.ChurnEntry{{Path: "internal/engine.go", Commits: 5, Added: 100, Deleted: 20, Score: 125}},
 			LastCommitAt: time.Date(2026, 1, 2, 3, 0, 0, 0, time.UTC),
