@@ -27,6 +27,15 @@ internal/server/assets/*
 # Local analysis database.
 .lensyxe/
 
+# Launch-video render output.
+#
+# `brag-output/` is generated: a render plan, an mp4, and the Hyperframes
+# project that produced it. None of it is source, and the mp4 in particular is a
+# few megabytes of binary that would change on every re-render. Anchored to the
+# repository root for the same reason as the binaries below -- an unanchored
+# pattern would match a directory of that name at any depth.
+brag-output/
+
 # Build output.
 #
 # The leading slash is load-bearing. A bare `lensyxe` pattern has no slash, so
