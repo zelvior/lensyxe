@@ -15,7 +15,7 @@ export function HealthTimeline({ records }: { records: HistoryRecord[] }) {
 
   if (points.length === 0) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-slate-300">
         No snapshots recorded yet. Run <code className="text-slate-400">lensyxe analyze</code>{' '}
         to record one.
       </p>
@@ -28,7 +28,7 @@ export function HealthTimeline({ records }: { records: HistoryRecord[] }) {
         <p className="tabular text-2xl font-semibold text-slate-100">
           {formatScore(points[0].score)}
         </p>
-        <p className="mt-1 text-slate-500">
+        <p className="mt-1 text-slate-300">
           First snapshot. A trend needs at least two runs.
         </p>
       </div>
@@ -104,7 +104,7 @@ export function HealthTimeline({ records }: { records: HistoryRecord[] }) {
           </circle>
         ))}
       </svg>
-      <div className="mt-2 flex justify-between text-xs text-slate-600">
+      <div className="mt-2 flex justify-between text-xs text-slate-400">
         <span>
           {points.length} run{points.length === 1 ? '' : 's'}
         </span>

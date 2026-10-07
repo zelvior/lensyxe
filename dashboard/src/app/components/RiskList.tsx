@@ -18,7 +18,7 @@ const SEVERITY_CLASS: Record<string, string> = {
 export function RiskList({ risks }: { risks: Risk[] }) {
   if (risks.length === 0) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-slate-300">
         No risks detected.
       </p>
     );
@@ -41,13 +41,13 @@ export function RiskList({ risks }: { risks: Risk[] }) {
               {SEVERITY_LABEL[r.severity] ?? r.severity}
               <span className="ml-2 font-normal text-slate-300">{r.title}</span>
             </h3>
-            <span className="tabular text-xs text-slate-500">
+            <span className="tabular text-xs text-slate-300">
               −{formatScore(r.impact)} pts
             </span>
           </div>
 
           {r.subject && (
-            <p className="mt-1 font-mono text-xs text-slate-500">{r.subject}</p>
+            <p className="mt-1 font-mono text-xs text-slate-300">{r.subject}</p>
           )}
 
           <p className="mt-2 text-xs leading-relaxed text-slate-400">{r.detail}</p>
@@ -55,7 +55,7 @@ export function RiskList({ risks }: { risks: Risk[] }) {
           {r.evidence.length > 0 && (
             <ul className="mt-2.5 space-y-1 border-l border-slate-700/60 pl-3">
               {r.evidence.map((e, i) => (
-                <li key={`${r.id}-ev-${i}`} className="text-xs text-slate-500">
+                <li key={`${r.id}-ev-${i}`} className="text-xs text-slate-300">
                   {e.label && (
                     <span className="font-medium text-slate-400">{e.label}: </span>
                   )}
@@ -112,7 +112,7 @@ export function RiskSummary({
         >
           <span aria-hidden>{SEVERITY_GLYPH[sev]}</span>
           <span className="tabular text-slate-200">{n}</span>
-          <span className="text-slate-500">{SEVERITY_LABEL[sev]}</span>
+          <span className="text-slate-300">{SEVERITY_LABEL[sev]}</span>
         </span>
       ))}
     </div>

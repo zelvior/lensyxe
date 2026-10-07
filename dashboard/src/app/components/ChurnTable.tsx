@@ -18,7 +18,7 @@ import type { ChurnEntry, Hotspot } from 'lib/types';
 export function ChurnTable({ churn, hotspots }: { churn: ChurnEntry[]; hotspots: Hotspot[] }) {
   if (churn.length === 0) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-slate-300">
         No churn was recorded in the window. Either the directory is not a git
         repository, or nothing changed inside it.
       </p>
@@ -33,13 +33,13 @@ export function ChurnTable({ churn, hotspots }: { churn: ChurnEntry[]; hotspots:
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
-              <th className="py-2 pr-4 font-medium">File</th>
-              <th className="py-2 pr-4 text-right font-medium">Commits</th>
-              <th className="py-2 pr-4 text-right font-medium">Added</th>
-              <th className="py-2 pr-4 text-right font-medium">Deleted</th>
-              <th className="py-2 pr-4 font-medium">Share of churn</th>
-              <th className="py-2 font-medium">Also a hotspot</th>
+            <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-300">
+              <th scope="col" className="py-2 pr-4 font-medium">File</th>
+              <th scope="col" className="py-2 pr-4 text-right font-medium">Commits</th>
+              <th scope="col" className="py-2 pr-4 text-right font-medium">Added</th>
+              <th scope="col" className="py-2 pr-4 text-right font-medium">Deleted</th>
+              <th scope="col" className="py-2 pr-4 font-medium">Share of churn</th>
+              <th scope="col" className="py-2 font-medium">Also a hotspot</th>
             </tr>
           </thead>
           <tbody>
@@ -85,7 +85,7 @@ export function ChurnTable({ churn, hotspots }: { churn: ChurnEntry[]; hotspots:
                         {hotspot.confirmed ? 'Confirmed' : 'Candidate'}
                       </span>
                     ) : (
-                      <span className="text-xs text-slate-600">—</span>
+                      <span className="text-xs text-slate-400">—</span>
                     )}
                   </td>
                 </tr>
@@ -94,7 +94,7 @@ export function ChurnTable({ churn, hotspots }: { churn: ChurnEntry[]; hotspots:
           </tbody>
         </table>
       </div>
-      <p className="mt-3 text-xs text-slate-600">
+      <p className="mt-3 text-xs text-slate-400">
         Movement inside the analysis window. A file can be large without ever
         appearing here, and can churn heavily without being large; a hotspot
         needs both.

@@ -190,6 +190,30 @@ Full arithmetic: **[docs/SCORING_SPEC.md](docs/SCORING_SPEC.md)**.
 | [`lensyxe serve`](docs/CLI_REFERENCE.md#lensyxe-serve) | Local dashboard and JSON API in one process. |
 | `lensyxe version` | Build metadata: commit, build date, toolchain, platform. |
 
+### The dashboard, hosted
+
+**<https://lensyxe.vercel.app>** runs the same dashboard against a snapshot file you
+bring to it:
+
+```bash
+lensyxe analyze . --format json > lensyxe.json
+```
+
+Drop that file on the page and every figure renders. **The file is parsed in your
+browser and never uploaded** — a tool that promises local-first analysis cannot
+then post a repository's metrics to a server to draw a chart. There is no
+account, no backend, and no request carrying your code anywhere.
+
+This is the same build that `lensyxe serve` embeds. Run locally, it detects the
+API and re-analyzes on demand; hosted, there is no repository behind it, so it
+says so and asks for a file rather than pretending to be live. The page states
+which of the two it is showing, because a snapshot cannot be refreshed and a
+dashboard that offers a Reload button which cannot refresh is lying.
+
+Snapshots carry no history — that lives in the SQLite database on the machine
+that produced them — so the timeline renders as "no snapshots recorded yet"
+rather than a flat line implying stability.
+
 ---
 
 ## Output formats

@@ -8,6 +8,7 @@ import { ChurnTable } from 'components/ChurnTable';
 import { CompareView } from 'components/CompareView';
 import { LanguageBreakdown } from 'components/LanguageBreakdown';
 import { RiskList, RiskSummary } from 'components/RiskList';
+import { SnapshotLoader } from 'components/SnapshotLoader';
 import { formatPct } from 'lib/format';
 
 /**
@@ -21,12 +22,12 @@ import { formatPct } from 'lib/format';
  * code is worse than showing nothing.
  */
 export default function OverviewPage() {
-  const { state, reload } = useOverview();
+  const { state, reload, loadSnapshot, backToLoader } = useOverview();
 
   if (state.status === 'loading') {
     return (
       <div className="card">
-        <p className="card-title">Analyzing</p>
+        <h2 className="card-title">Analyzing</h2>
         <p className="text-sm text-slate-400">
           Reading the local repository through the Lensyxe API.
         </p>
@@ -34,15 +35,23 @@ export default function OverviewPage() {
     );
   }
 
+  // Static host: no API to talk to, so a snapshot is the only way in. This is
+  // not an error state, and it must not be dressed as one.
+  if (state.status === 'needs-snapshot') {
+    return <SnapshotLoader onLoad={loadSnapshot} />;
+  }
+
   if (state.status === 'error') {
     return (
       <div className="card">
-        <p className="card-title">Unavailable</p>
+        <h2 className="card-title">Unavailable</h2>
         <p className="text-sm text-slate-400">
           Could not reach the local Lensyxe API.
         </p>
-        <p className="mt-2 font-mono text-xs text-red-400">{state.message}</p>
-        <p className="mt-3 text-xs text-slate-600">
+        <p className="mt-2 break-words font-mono text-xs text-red-400">
+          {state.message}
+        </p>
+        <p className="mt-3 text-xs text-slate-400">
           Is the server still running? Press Ctrl+C in the terminal that started
           it and run <code className="text-slate-400">lensyxe serve</code> again.
         </p>
@@ -61,29 +70,58 @@ export default function OverviewPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      {/*
+        Provenance is stated, not implied.
+
+        A snapshot cannot be refreshed -- there is no repository behind it -- so
+        offering "Reload data" would be offering a button that cannot do what it
+        says. What it offers instead is a file picker, which is honest.
+      */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {state.mode === 'snapshot' && state.snapshot ? (
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+            <span className="font-semibold">Snapshot</span>
+            <span className="font-mono opacity-80">
+              {state.snapshot.root || 'unknown repository'}
+            </span>
+            {state.snapshot.generatedAt && (
+              <span className="opacity-80">
+                measured {state.snapshot.generatedAt.replace('T', ' ').replace('Z', ' UTC')}
+              </span>
+            )}
+            {state.snapshot.version && (
+              <span className="opacity-80">lensyxe {state.snapshot.version}</span>
+            )}
+          </p>
+        ) : (
+          <p className="text-xs text-slate-400">
+            Live · reading a local repository
+          </p>
+        )}
         <button
           type="button"
-          onClick={() => void reload()}
-          className="rounded border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:border-slate-500"
+          onClick={() =>
+            state.mode === 'snapshot' ? backToLoader() : void reload()
+          }
+          className="ml-auto rounded border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:border-slate-500"
         >
-          Reload data
+          {state.mode === 'snapshot' ? 'Load another snapshot' : 'Reload data'}
         </button>
       </div>
 
       {/* Summary */}
       <section className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div className="card">
-          <p className="card-title">Overall Health</p>
+          <h2 className="card-title">Overall Health</h2>
           <HealthGauge score={health.health.score} grade={health.health.grade} />
           <p className="mt-3 text-sm text-slate-400">{health.health.summary}</p>
-          <p className="mt-2 truncate text-xs text-slate-600">
+          <p className="mt-2 truncate text-xs text-slate-400">
             <span className="font-mono">{health.root}</span> · lensyxe {health.version}
           </p>
         </div>
 
         <div className="card">
-          <p className="card-title">Components</p>
+          <h2 className="card-title">Components</h2>
           <MetricBars metrics={health.health.metrics} />
         </div>
       </section>
@@ -126,7 +164,7 @@ export default function OverviewPage() {
 
       {/* Comparison */}
       <section className="card">
-        <p className="card-title">Compare against a recorded run</p>
+        <h2 className="card-title">Compare against a recorded run</h2>
         <CompareView
           current={health}
           records={history.records}
@@ -136,20 +174,20 @@ export default function OverviewPage() {
 
       {/* Languages */}
       <section className="card">
-        <p className="card-title">Languages</p>
+        <h2 className="card-title">Languages</h2>
         <LanguageBreakdown languages={health.code.languages} />
       </section>
 
       {/* Timeline */}
       <section className="card">
-        <p className="card-title">Health over time</p>
+        <h2 className="card-title">Health over time</h2>
         <HealthTimeline records={history.records} />
       </section>
 
       {/* Risks */}
       <section className="card">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-          <p className="card-title mb-0">Top detected risks</p>
+          <h2 className="card-title mb-0">Top detected risks</h2>
           <RiskSummary
             critical={risks.critical}
             high={risks.high}
@@ -162,10 +200,10 @@ export default function OverviewPage() {
 
       {/* Hotspots */}
       <section className="card">
-        <p className="card-title">Hotspots</p>
+        <h2 className="card-title">Hotspots</h2>
         <HotspotTable hotspots={hotspots.hotspots} />
         {hotspots.total > 0 && (
-          <p className="mt-3 text-xs text-slate-600">
+          <p className="mt-3 text-xs text-slate-400">
             {hotspots.confirmed} confirmed of {hotspots.total} candidate
             {hotspots.total === 1 ? '' : 's'}. Confirmation requires size, churn,
             and complexity to cross their thresholds together. Select a row for
@@ -176,11 +214,11 @@ export default function OverviewPage() {
 
       {/* Churn */}
       <section className="card">
-        <p className="card-title">Churn</p>
+        <h2 className="card-title">Churn</h2>
         <ChurnTable churn={hotspots.churn} hotspots={hotspots.hotspots} />
       </section>
 
-      <p className="text-xs text-slate-600">
+      <p className="text-xs text-slate-400">
         {history.count} recorded run{history.count === 1 ? '' : 's'} · {risks.total}{' '}
         risk{risks.total === 1 ? '' : 's'} in the current snapshot
       </p>

@@ -11,7 +11,7 @@ import { formatPct } from 'lib/format';
 export function LanguageBreakdown({ languages }: { languages: LanguageStat[] }) {
   if (languages.length === 0) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-slate-300">
         No language was detected. Nothing in the tree matched a known extension.
       </p>
     );
@@ -26,13 +26,13 @@ export function LanguageBreakdown({ languages }: { languages: LanguageStat[] }) 
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
-              <th className="py-2 pr-4 font-medium">Language</th>
-              <th className="py-2 pr-4 text-right font-medium">Files</th>
-              <th className="py-2 pr-4 text-right font-medium">Code lines</th>
-              <th className="py-2 pr-4 text-right font-medium">Share</th>
-              <th className="py-2 pr-4 text-right font-medium">Test files</th>
-              <th className="py-2 font-medium">Composition</th>
+            <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-300">
+              <th scope="col" className="py-2 pr-4 font-medium">Language</th>
+              <th scope="col" className="py-2 pr-4 text-right font-medium">Files</th>
+              <th scope="col" className="py-2 pr-4 text-right font-medium">Code lines</th>
+              <th scope="col" className="py-2 pr-4 text-right font-medium">Share</th>
+              <th scope="col" className="py-2 pr-4 text-right font-medium">Test files</th>
+              <th scope="col" className="py-2 font-medium">Composition</th>
             </tr>
           </thead>
           <tbody>
@@ -71,7 +71,7 @@ export function LanguageBreakdown({ languages }: { languages: LanguageStat[] }) 
           </tbody>
         </table>
       </div>
-      <p className="mt-3 text-xs text-slate-600">
+      <p className="mt-3 text-xs text-slate-400">
         {totalFiles.toLocaleString('en-US')} file{totalFiles === 1 ? '' : 's'} across{' '}
         {languages.length} language{languages.length === 1 ? '' : 's'},{' '}
         {totalLines.toLocaleString('en-US')} code lines. Blank lines and comments are

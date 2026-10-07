@@ -58,7 +58,7 @@ function FactorChips({ classification, confirmed }: { classification: string; co
             className={
               on
                 ? 'rounded bg-slate-600/50 px-2 py-0.5 text-xs text-slate-200'
-                : 'rounded border border-slate-800 px-2 py-0.5 text-xs text-slate-600'
+                : 'rounded border border-slate-800 px-2 py-0.5 text-xs text-slate-400'
           }
           title={on ? `${f.label} threshold met` : `${f.label} threshold not met`}
           >
@@ -89,7 +89,7 @@ export function HotspotTable({ hotspots }: { hotspots: Hotspot[] }) {
 
   if (hotspots.length === 0) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-slate-300">
         No hotspot candidates. No file reached the size threshold.
       </p>
     );
@@ -108,13 +108,15 @@ export function HotspotTable({ hotspots }: { hotspots: Hotspot[] }) {
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead>
-          <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
-            <th className="py-2 pr-4 font-medium" />
-            <th className="py-2 pr-4 font-medium">File</th>
-            <th className="py-2 pr-4 text-right font-medium">Lines</th>
-            <th className="py-2 pr-4 text-right font-medium">Churn</th>
-            <th className="py-2 pr-4 text-right font-medium">Cx</th>
-            <th className="py-2 font-medium">Severity</th>
+          <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-300">
+            <th scope="col" className="py-2 pr-4 font-medium">
+              <span className="sr-only">Expand</span>
+            </th>
+            <th scope="col" className="py-2 pr-4 font-medium">File</th>
+            <th scope="col" className="py-2 pr-4 text-right font-medium">Lines</th>
+            <th scope="col" className="py-2 pr-4 text-right font-medium">Churn</th>
+            <th scope="col" className="py-2 pr-4 text-right font-medium">Cx</th>
+            <th scope="col" className="py-2 font-medium">Severity</th>
           </tr>
         </thead>
         <tbody>
@@ -126,15 +128,18 @@ export function HotspotTable({ hotspots }: { hotspots: Hotspot[] }) {
                   className="cursor-pointer border-b border-slate-800/50 align-top hover:bg-slate-800/20"
                   onClick={() => toggle(h.path)}
                 >
-                  <td className="w-6 py-2.5 pr-2 text-slate-600">
+                  <td className="w-6 py-2.5 pr-2 text-slate-400">
                     <span aria-hidden="true">{expanded ? '▾' : '▸'}</span>
                   </td>
-                  <td className="py-2.5 pr-4">
+                  <th
+                    scope="row"
+                    className="py-2.5 pr-4 text-left font-normal"
+                  >
                     <span className="block truncate font-mono text-xs text-slate-200">
                       {h.path}
                     </span>
-                    <span className="mt-0.5 block text-xs text-slate-600">{h.rationale}</span>
-                  </td>
+                    <span className="mt-0.5 block text-xs text-slate-400">{h.rationale}</span>
+                  </th>
                   <td className="tabular py-2.5 pr-4 text-right text-slate-400">
                     {h.lines}
                   </td>
@@ -154,7 +159,7 @@ export function HotspotTable({ hotspots }: { hotspots: Hotspot[] }) {
                     <td colSpan={5} className="py-4 pr-4">
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div>
-                          <p className="mb-2 text-xs uppercase tracking-wider text-slate-500">
+                          <p className="mb-2 text-xs uppercase tracking-wider text-slate-300">
                             Thresholds crossed
                           </p>
                           <FactorChips
@@ -163,7 +168,7 @@ export function HotspotTable({ hotspots }: { hotspots: Hotspot[] }) {
                           />
                         </div>
                         <div>
-                          <p className="mb-2 text-xs uppercase tracking-wider text-slate-500">
+                          <p className="mb-2 text-xs uppercase tracking-wider text-slate-300">
                             Size against the largest candidate
                           </p>
                           <span className="block h-1.5 rounded bg-slate-700">
@@ -174,7 +179,7 @@ export function HotspotTable({ hotspots }: { hotspots: Hotspot[] }) {
                               }}
                             />
                           </span>
-                          <p className="mt-1.5 text-xs text-slate-500">
+                          <p className="mt-1.5 text-xs text-slate-300">
                             {h.lines.toLocaleString('en-US')} code lines,{' '}
                             {Math.round((h.lines / largest) * 100)}% of the largest
                             candidate{' '}
@@ -192,7 +197,7 @@ export function HotspotTable({ hotspots }: { hotspots: Hotspot[] }) {
                           analyzer will not report it as one.
                         </p>
                       ) : (
-                        <p className="mt-3 text-xs text-slate-500">
+                        <p className="mt-3 text-xs text-slate-300">
                           A candidate, not a confirmed hotspot. It has not met the
                           churn and complexity thresholds alongside its size, so
                           changing it is not known to be dangerous. It is listed

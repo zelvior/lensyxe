@@ -26,10 +26,24 @@
 
 @layer components {
   .card {
-    @apply rounded-lg border border-slate-800 bg-slate-900/40 p-5;
+    /* Padding steps with the viewport: a fixed 20px gutter inside an already
+       narrow phone gutter leaves very little room for a score and its label. */
+    @apply rounded-lg border border-slate-800 bg-slate-900/40 p-4 sm:p-5;
   }
 
   .card-title {
-    @apply mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500;
+    @apply mb-3 text-xs font-semibold uppercase tracking-wider text-slate-300 sm:mb-4;
+  }
+
+  /*
+   * A scroll container for wide tables.
+
+   * overflow-x-auto alone is not enough: it also needs min-w-0 so the grid or
+   * flex parent is allowed to shrink below the table's intrinsic width. Without
+   * it a wide table forces the whole page to scroll horizontally, which drags
+   * the header and every other card along with it.
+   */
+  .scroll-x {
+    @apply -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0;
   }
 }

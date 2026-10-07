@@ -30,9 +30,9 @@ interface Row {
  * them red.
  */
 function deltaClass(row: Row): string {
-  if (row.now === null || row.then === null) return 'text-slate-500';
+  if (row.now === null || row.then === null) return 'text-slate-300';
   const delta = row.now - row.then;
-  if (delta === 0) return 'text-slate-500';
+  if (delta === 0) return 'text-slate-300';
   const good = row.lowerIsBetter ? delta < 0 : delta > 0;
   return good ? 'text-emerald-400' : 'text-red-400';
 }
@@ -153,7 +153,7 @@ export function CompareView({
 
   if (records.length === 0) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-slate-300">
         Nothing to compare against yet. Each run of{' '}
         <code className="text-slate-400">lensyxe analyze</code> is recorded locally,
         so the second one gives this something to compare.
@@ -164,7 +164,7 @@ export function CompareView({
   const baseline = records.find((r) => r.id === selected);
   if (!baseline) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-slate-300">
         That recorded run is no longer available. Reload the data.
       </p>
     );
@@ -176,7 +176,7 @@ export function CompareView({
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <label htmlFor="compare-baseline" className="text-xs uppercase tracking-wider text-slate-500">
+        <label htmlFor="compare-baseline" className="text-xs uppercase tracking-wider text-slate-300">
           Against
         </label>
         <select
@@ -196,11 +196,11 @@ export function CompareView({
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
-              <th className="py-2 pr-4 font-medium">Figure</th>
-              <th className="py-2 pr-4 text-right font-medium">Then</th>
-              <th className="py-2 pr-4 text-right font-medium">Now</th>
-              <th className="py-2 font-medium">Change</th>
+            <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-300">
+              <th scope="col" className="py-2 pr-4 font-medium">Figure</th>
+              <th scope="col" className="py-2 pr-4 text-right font-medium">Then</th>
+              <th scope="col" className="py-2 pr-4 text-right font-medium">Now</th>
+              <th scope="col" className="py-2 font-medium">Change</th>
             </tr>
           </thead>
           <tbody>
@@ -209,11 +209,11 @@ export function CompareView({
               return (
                 <tr key={r.label} className="border-b border-slate-800/50">
                   <td className="py-2.5 pr-4 text-slate-300">{r.label}</td>
-                  <td className="tabular py-2.5 pr-4 text-right text-slate-500">
-                    {canCompare ? render(r.then!, r.ratio) : <span className="text-slate-600">—</span>}
+                  <td className="tabular py-2.5 pr-4 text-right text-slate-300">
+                    {canCompare ? render(r.then!, r.ratio) : <span className="text-slate-400">—</span>}
                   </td>
                   <td className="tabular py-2.5 pr-4 text-right text-slate-300">
-                    {canCompare ? render(r.now!, r.ratio) : <span className="text-slate-600">not measured</span>}
+                    {canCompare ? render(r.now!, r.ratio) : <span className="text-slate-400">not measured</span>}
                   </td>
                   <td className={`tabular py-2.5 ${deltaClass(r)}`}>
                     {canCompare ? signed(r.now! - r.then!) : 'not comparable'}
@@ -225,7 +225,7 @@ export function CompareView({
         </table>
       </div>
 
-      <p className="mt-3 text-xs text-slate-600">
+      <p className="mt-3 text-xs text-slate-400">
         {comparable} of {rows.length} figures are comparable. The rest were not
         measured on both sides, and a difference from a number that was never
         taken is not reported as one. This compares the live working tree against

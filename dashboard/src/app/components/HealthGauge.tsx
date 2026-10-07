@@ -88,7 +88,7 @@ export function MetricBars({ metrics }: { metrics: Metric[] }) {
 
   if (applicable.length === 0) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-slate-300">
         No dimensions were applicable to this repository.
       </p>
     );
@@ -102,7 +102,7 @@ export function MetricBars({ metrics }: { metrics: Metric[] }) {
             <span className="truncate text-sm text-slate-300">{m.label}</span>
             <span className="tabular shrink-0 text-sm text-slate-400">
               {formatScore(m.score)}
-              <span className="ml-2 text-xs text-slate-600">
+              <span className="ml-2 text-xs text-slate-400">
                 {Math.round(m.weight * 100)}% weight
               </span>
             </span>
@@ -124,7 +124,7 @@ export function MetricBars({ metrics }: { metrics: Metric[] }) {
             />
           </div>
           {m.detail && (
-            <p className="mt-1 truncate text-xs text-slate-600">{m.detail}</p>
+            <p className="mt-1 truncate text-xs text-slate-400">{m.detail}</p>
           )}
         </li>
       ))}
@@ -149,9 +149,9 @@ export function StatTile({
 }) {
   return (
     <div className="card">
-      <p className="text-xs uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="text-xs uppercase tracking-wider text-slate-300">{label}</p>
       <p className="tabular mt-1.5 text-2xl font-semibold text-slate-100">{value}</p>
-      {note && <p className="mt-1 text-xs text-slate-600">{note}</p>}
+      {note && <p className="mt-1 text-xs text-slate-400">{note}</p>}
     </div>
   );
 }
