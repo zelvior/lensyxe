@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -48,6 +49,9 @@ so rather than printing numbers it cannot support.`),
 			// on whether an argument exists keeps `blast` and `blast <file>`
 			// working without a flag between them.
 			target, files := splitTargetAndFiles(a, args)
+			if err := requireDir(target); err != nil {
+				return err
+			}
 
 			cfg := blast.DefaultConfig()
 			cfg.CouplingThreshold = coupling
@@ -95,18 +99,48 @@ so rather than printing numbers it cannot support.`),
 
 // splitTargetAndFiles separates an optional leading directory from file names.
 //
-// A single argument is always treated as the target, so `blast` on its own path
-// behaves like every other command in this tool. Two or more arguments is a
-// target followed by files. The ambiguity is real and unresolvable from the
-// arguments alone, so it is resolved the way a reader would: with one argument
-// it is a path, with several it is a path and a file list.
+// A single argument is treated as the target, so `blast` on its own path behaves
+// like every other command in this tool -- unless it names an existing regular
+// file, in which case it is the file to review and the configured target stands.
+// The filesystem settles an ambiguity the arguments cannot: one argument is a
+// path only when it is one.
+//
+// This mattered. `blast internal/gap/profiler.go` was read as a *directory*,
+// which set git's working directory to a file, and the command failed with
+//
+//	fork/exec ...git.exe: The directory name is invalid
+//
+// An opaque OS error for what is plainly a file review. Two arguments worked,
+// so the documented way to name a file required a redundant "." first.
 func splitTargetAndFiles(a *app, args []string) (string, []string) {
 	if len(args) == 0 {
 		return a.cfg.Target, nil
 	}
 	if len(args) == 1 {
+		if info, err := os.Stat(args[0]); err == nil && !info.IsDir() {
+			return a.cfg.Target, args[:1]
+		}
 		return a.withTarget(args[:1]).Target, nil
 	}
 	cfg := a.withTarget(args[:1])
 	return cfg.Target, args[1:]
+}
+
+// requireDir rejects a target that is not a directory, before any command runs
+// against it.
+//
+// Without this the failure surfaces later as an OS error from whatever the
+// command happened to exec first, naming that tool rather than the path the user
+// typed. The message has to name the path and say what was expected.
+func requireDir(target string) error {
+	info, err := os.Stat(target)
+	if err != nil {
+		return fmt.Errorf("target %s: %w", target, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf(
+			"target %s is a file, not a directory; name the directory to "+
+				"analyze, or pass the file after it", target)
+	}
+	return nil
 }

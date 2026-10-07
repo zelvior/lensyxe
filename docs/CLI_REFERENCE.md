@@ -274,6 +274,18 @@ modified since `HEAD` plus every untracked file that is not gitignored. Naming
 files overrides that, which is what makes the command usable on a branch that is
 already committed.
 
+**A single argument is a path only when it is one.** If it names an existing
+regular file it is the file to review, and the configured target stands:
+
+```bash
+lensyxe blast internal/gap/profiler.go    # reviews that one file
+lensyxe blast . internal/gap/profiler.go  # same thing, said explicitly
+```
+
+The filesystem settles an ambiguity the arguments cannot. A target that is not a
+directory is rejected with the path named in the message, rather than surfacing
+later as an OS error from whichever tool exec'd first.
+
 ### How coupling is measured
 
 For a pair of files, coupling is the number of commits touching both, divided by
