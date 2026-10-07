@@ -107,9 +107,11 @@ dependencies:
 lensyxe-gui
 ```
 
-Packages are also published for machines that expect one — `.deb`, `.rpm`, and a
-Windows `LensyxeSetup.exe`. See [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) for
-all four install routes and how to undo each one.
+Packages are also published for machines that expect one — `.deb`, `.rpm`, a
+Windows installer, and a macOS disk image. **None of them are code-signed**, so
+Windows will report an unknown publisher and macOS will ask you to open the
+`.dmg` once; see [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) for all four
+install routes, how to undo each one, and what the signing state is.
 
 Pin a release, or install into your home directory instead of
 `/usr/local/bin`:

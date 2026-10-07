@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 # Builds the macOS .app bundle and a drag-to-Applications .dmg.
 #
-# Run from the repository root, on macOS, with a release archive unpacked:
+# Run from the repository root, on macOS, with the binaries staged:
 #
-#   dist/macos-darwin/lensyxe          # built by goreleaser
-#   build/desktop/mac/build.sh
+#   build/desktop/mac/stage/lensyxe
+#   build/desktop/mac/stage/lensyxe-gui
+#   build/desktop/mac/stage/LICENSE
+#   build/desktop/mac/stage/README.md
+#
+# CI assembles that directory by extracting the release archives. Depending on
+# goreleaser's own layout instead would tie this script to a template string:
+# renaming the archive breaks the build with no useful error.
 #
 # Why this is a script and not a goreleaser target: goreleaser's dmg target
 # cannot produce a *signed* disk image, and an unsigned .dmg that Gatekeeper
@@ -12,7 +18,7 @@
 # needs an Apple Developer identity and the `codesign` and `notarytool` binaries,
 # which only exist on macOS with Xcode installed. So:
 #
-#   - goreleaser ships the .app bundle inside the archive (works everywhere).
+#   - goreleaser ships the plain binaries inside the archives (works anywhere).
 #   - This script assembles and signs the .dmg on a macOS runner.
 #
 # The script degrades honestly: with no signing identity it still produces a
@@ -26,12 +32,13 @@ cd "$REPO_ROOT"
 
 APP_NAME="Lensyxe"
 VERSION="${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null || echo dev)}"
+STAGE="${STAGE:-build/desktop/mac/stage}"
 BUILD_DIR="${BUILD_DIR:-build/desktop/mac/out}"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
 CONTENTS="$APP_BUNDLE/Contents"
 
-BIN_SRC="dist/macos-darwin_${GOARCH:-arm64}/lensyxe"
-WIZARD_SRC="dist/macos-darwin_${GOARCH:-arm64}/lensyxe-gui"
+BIN_SRC="$STAGE/lensyxe"
+WIZARD_SRC="$STAGE/lensyxe-gui"
 
 log()  { printf '  %s\n' "$*"; }
 fail() { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -41,11 +48,11 @@ fail() { printf 'error: %s\n' "$*" >&2; exit 1; }
 [[ "$(uname -s)" == "Darwin" ]] || fail "a .dmg must be built on macOS; this is $(uname -s)"
 command -v hdiutil >/dev/null || fail "hdiutil not found"
 
-if [[ ! -x "$BIN_SRC" ]]; then
-  fail "binary not found at $BIN_SRC (build the release first)"
+if [[ ! -f "$BIN_SRC" ]]; then
+  fail "binary not found at $BIN_SRC (stage it before running this script)"
 fi
-if [[ ! -x "$WIZARD_SRC" ]]; then
-  fail "setup wizard not found at $WIZARD_SRC (build the release first)"
+if [[ ! -f "$WIZARD_SRC" ]]; then
+  fail "setup wizard not found at $WIZARD_SRC (stage it before running this script)"
 fi
 
 log "version $VERSION"

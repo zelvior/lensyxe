@@ -318,6 +318,12 @@ jobs:
       - name: Upload archives as a workflow artifact
         # A copy that outlives the draft release, so a failed publish is still
         # recoverable from the Actions tab.
+        #
+        # This is also what the two installer jobs below consume. They download
+        # this artifact rather than rebuilding, so an installer always ships the
+        # exact binary that checksums.txt covers. A rebuilt binary would be a
+        # different artifact under the same name, which is precisely the failure
+        # that makes a checksum useless.
         uses: actions/upload-artifact@v4
         with:
           name: dist
@@ -325,3 +331,240 @@ jobs:
             dist/*
           if-no-files-found: error
           retention-days: 14
+
+  # ============================================================== installers
+  #
+  # Both jobs run after `build`, which guarantees two things they depend on:
+  # the draft release already exists, and the binaries they install are the ones
+  # just checksummed.
+  #
+  # Neither is a goreleaser target. NSIS exists only on Windows and hdiutil and
+  # codesign only on macOS, so these cannot run on the Linux runner that builds
+  # everything else. An installer produced on the wrong platform would also be
+  # the wrong artifact to test on.
+  #
+  # Neither is signed with a real identity. That is stated plainly in the job
+  # summaries rather than hidden, because an unsigned macOS disk image is
+  # Gatekeeper-blocked and a user who is not told why will conclude the release
+  # is broken rather than unsigned.
+
+  windows-installer:
+    name: Windows installer (.exe)
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goarch: amd64
+            gorelease_arch: x86_64
+          - goarch: arm64
+            gorelease_arch: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the built archives
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Stage the Windows binaries
+        shell: pwsh
+        # nsis.nsi reads a fixed directory rather than goreleaser's own layout.
+        # Depending on an archive template string ties the installer to it:
+        # renaming the archive breaks the installer with no useful build error.
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage = 'build/desktop/win/stage'
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+
+          $zip = Get-ChildItem dist -Filter "*windows_${{ matrix.gorelease_arch }}.zip" |
+                 Select-Object -First 1
+          if (-not $zip) { throw "no Windows archive for ${{ matrix.gorelease_arch }} in dist/" }
+
+          Expand-Archive -Path $zip.FullName -DestinationPath $stage -Force
+
+          if (-not (Test-Path "$stage\lensyxe.exe")) {
+            throw "lensyxe.exe missing from the archive; the installer would ship empty"
+          }
+
+          Copy-Item LICENSE, README.md -Destination $stage -Force
+          # The version the installer records. A tag names itself; a manual run
+          # has no tag, so the commit is the honest label.
+          $version = if ('${{ github.ref_name }}' -like 'refs/*') {
+            '${{ github.ref_name }}'
+          } else {
+            "snapshot-${{ github.sha }}"
+          }
+          Set-Content -Path "$stage\VERSION.txt" -Value $version -NoNewline
+
+          Get-ChildItem $stage | ForEach-Object { "  staged $($_.Name)" }
+
+      - name: Install NSIS
+        # makensis is not on the runner image. It is a single package from the
+        # distribution's own manager rather than a downloaded installer, so
+        # there is no third-party binary executing itself with build privileges.
+        run: choco install nsis --no-progress --yes
+        shell: pwsh
+
+      - name: Build the installer
+        shell: pwsh
+        # Run from the repository root: nsis.nsi resolves its paths relative to
+        # the working directory, not to the script's own location.
+        run: |
+          $ErrorActionPreference = 'Stop'
+          makensis -DSTAGE=build/desktop/win/stage build/desktop/win/nsis.nsi
+          if (-not (Test-Path .\LensyxeSetup.exe)) {
+            throw 'makensis reported success but produced no LensyxeSetup.exe'
+          }
+          # Renamed per architecture so two files called LensyxeSetup.exe are
+          # not indistinguishable on the release page.
+          Move-Item .\LensyxeSetup.exe ".\LensyxeSetup-${{ matrix.goarch }}.exe"
+          "  built LensyxeSetup-${{ matrix.goarch }}.exe"
+
+      - name: Report what was signed
+        shell: pwsh
+        # An unsigned Windows installer triggers a SmartScreen prompt naming an
+        # unknown publisher. That is expected and is not a broken build; saying
+        # so here is cheaper than a support question later.
+        run: |
+          "  LensyxeSetup.exe (${{ matrix.goarch }})"
+          ""
+          "  UNSIGNED. Windows SmartScreen will show 'unknown publisher' on"
+          "  first run. That is the absence of a code-signing certificate, not"
+          "  a broken artifact. The archive is covered by checksums.txt."
+
+      - name: Upload the installer to the release
+        if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          # Named with the architecture, matching the convention every other
+          # artifact in this release already uses. Two files called
+          # LensyxeSetup.exe would be indistinguishable to a user.
+          files: LensyxeSetup-${{ matrix.goarch }}.exe
+          draft: true
+          prerelease: true
+
+  macos-installer:
+    name: macOS disk image (.dmg)
+    needs: build
+    runs-on: macos-14
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goarch: arm64
+            gorelease_arch: arm64
+          - goarch: amd64
+            gorelease_arch: amd64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the built archives
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Stage the macOS binaries
+        # Same fixed staging directory as the Windows job, for the same reason.
+        run: |
+          set -euo pipefail
+          stage=build/desktop/mac/stage
+          mkdir -p "$stage"
+
+          tarball=$(ls dist/*darwin_${{ matrix.gorelease_arch }}.tar.gz | head -1)
+          if [ -z "$tarball" ]; then
+            echo "no macOS archive for ${{ matrix.gorelease_arch }} in dist/" >&2
+            exit 1
+          fi
+          tar -xzf "$tarball" -C "$stage"
+
+          if [ ! -x "$stage/lensyxe" ]; then
+            echo "lensyxe missing from the archive; the bundle would ship empty" >&2
+            exit 1
+          fi
+          chmod +x "$stage/lensyxe" "$stage/lensyxe-gui"
+          cp LICENSE README.md "$stage/"
+          ls -l "$stage"
+
+      - name: Build the bundle and disk image
+        env:
+          # A tag names itself; a manual run has no tag, so the commit is the
+          # honest label.
+          VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('snapshot-{0}', github.sha) }}
+          # Absent when no Developer ID is configured. build.sh checks for the
+          # empty value and degrades to an unsigned image while saying so.
+          SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          NOTARY_PROFILE: ${{ secrets.MACOS_NOTARY_PROFILE }}
+        run: |
+          set -euo pipefail
+          export GOARCH=${{ matrix.goarch }}
+          ./build/desktop/mac/build.sh
+
+          dmg=$(ls build/desktop/mac/out/*.dmg | head -1)
+          if [ -z "$dmg" ]; then
+            echo "build.sh succeeded but produced no .dmg" >&2
+            exit 1
+          fi
+          # Renamed per architecture so two disk images are distinguishable.
+          mv "$dmg" "build/desktop/mac/out/Lensyxe-${{ matrix.goarch }}.dmg"
+
+      - name: Report whether the image was signed
+        run: |
+          if [ -n "${SIGN_IDENTITY:-}" ]; then
+            echo "  signed and notarized with $SIGN_IDENTITY"
+          else
+            echo "  UNSIGNED."
+            echo ""
+            echo "  No Apple Developer identity is configured for this repository,"
+            echo "  so the disk image carries an ad-hoc signature only. Gatekeeper"
+            echo "  blocks it on first open; users must either right-click > Open"
+            echo "  once, or run:"
+            echo ""
+            echo "    xattr -dr com.apple.quarantine Lensyxe-${{ matrix.goarch }}.dmg"
+            echo ""
+            echo "  This is a missing signing certificate, not a broken artifact."
+          fi
+
+      - name: Upload the disk image to the release
+        if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/desktop/mac/out/Lensyxe-${{ matrix.goarch }}.dmg
+          draft: true
+          prerelease: true
+
+  installer-summary:
+    # A single place that says what shipped and what did not, so the release page
+    # is not the only place a missing artifact is discoverable.
+    name: Installer summary
+    needs: [windows-installer, macos-installer]
+    # `always()` so a failure in one installer still produces the summary. A
+    # summary that only appears when everything succeeded is a summary that is
+    # missing exactly when it is needed.
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report
+        run: |
+          echo "### Installers"
+          echo ""
+          echo "| Artifact | Status |"
+          echo "| :--- | :--- | :--- |"
+          echo "| LensyxeSetup-amd64.exe | ${{ needs.windows-installer.result }} |"
+          echo "| LensyxeSetup-arm64.exe | ${{ needs.windows-installer.result }} |"
+          echo "| Lensyxe-darwin-arm64.dmg | ${{ needs.macos-installer.result }} |"
+          echo "| Lensyxe-darwin-amd64.dmg | ${{ needs.macos-installer.result }} |"
+          echo ""
+          echo "Both are UNSIGNED: no code-signing certificate is configured."
+          echo "The .deb and .rpm are built by goreleaser in the \`build\` job."
+          echo ""
+          echo "A failed installer does not block the release. The six binaries"
+          echo "and their checksums are published regardless, and a missing"
+          echo "installer degrades to the documented two-step install."

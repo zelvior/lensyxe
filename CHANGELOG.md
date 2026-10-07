@@ -26,10 +26,12 @@ workflow does that, so the claim was removed rather than left standing.
 - **`lensyxe setup --headless`** — non-interactive setup for servers and
   containers. Requires `--write`, because with nobody to read a proposal setup
   must write the file or do nothing.
-- **Native packages** — `.deb` and `.rpm` via goreleaser's `nfpms` target, and a
-  Windows `LensyxeSetup.exe` from `build/desktop/win/nsis.nsi`.
+- **Native packages** — `.deb` and `.rpm` via goreleaser's `nfpms` target, plus
+  Windows and macOS installers built in dedicated release jobs.
 - **`docs/DISTRIBUTION.md`** — the four install routes and why each is shaped the
   way it is.
+- **Release jobs for native installers** — `LensyxeSetup-{amd64,arm64}.exe` and
+  `Lensyxe-darwin-{amd64,arm64}.dmg`, built on their own platforms.
 
 ### Why the wizard is not a window
 

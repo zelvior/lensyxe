@@ -18,10 +18,23 @@
 ;     directory.
 ;   - The user's .lensyxe.yml is never touched. It holds their decisions.
 
+; The binaries are read from a fixed staging directory that CI assembles by
+; extracting the release archives, rather than from goreleaser's own layout.
+; Depending on goreleaser's naming here would tie the installer to a template
+; string; renaming the archive breaks the installer with no error at build time.
+;
+; Run makensis from the repository root:
+;   makensis -DSTAGE=build/desktop/win/stage build/desktop/win/nsis.nsi
+;
+; !ifndef STAGE defaults to that path so a local build works without the flag.
+
 Unicode true
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
-!include "StrFunc.nsh"
+
+!ifndef STAGE
+  !define STAGE "build\desktop\win\stage"
+!endif
 
 !define APPNAME       "Lensyxe"
 !define PUBLISHER     "Lensyxe"
@@ -44,7 +57,7 @@ VIAddVersionKey /LANG=1033 "FileVersion"    "{{ .Version }}"
 VIAddVersionKey /LANG=1033 "ProductVersion" "{{ .Version }}"
 VIAddVersionKey /LANG=1033 "LegalCopyright" "MIT licensed"
 
-!insertmacro MUI_PAGE_LICENSE "..\..\..\LICENSE"
+!insertmacro MUI_PAGE_LICENSE "LICENSE"
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
@@ -62,7 +75,14 @@ Section "lensyxe (required)" SecMain
   ; PATH and offers the background service, so it ships beside the binary rather
   ; than as a separate download that may not match it.
   SetOutPath "$INSTDIR"
-  File /r "..\dist\{{ .ProjectName }}_windows_{{ .Arch }}\*"
+  ; NonFatal so a missing optional file does not abort the whole install. The
+  ; wizard binary is what this installer adds, and an older archive may not
+  ; carry it; failing the build over a missing LICENSE would be absurd.
+  File /nonfatal "${STAGE}\lensyxe.exe"
+  File /nonfatal "${STAGE}\lensyxe-gui.exe"
+  File /nonfatal "${STAGE}\LICENSE"
+  File /nonfatal "${STAGE}\README.md"
+  File /nonfatal "${STAGE}\VERSION.txt"
 
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "${APPKEY}" "InstallDir" "$INSTDIR"

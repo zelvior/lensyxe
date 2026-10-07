@@ -80,19 +80,56 @@ package manager ends up fighting an installer over the same file.
 | :--- | :--- | :--- |
 | Six binaries, archives, checksums | goreleaser | any runner |
 | `.deb`, `.rpm` | goreleaser `nfpms` | any runner |
-| `LensyxeSetup.exe` | `build/desktop/win/nsis.nsi` | Windows runner (makensis) |
-| `.dmg` | `build/desktop/mac/build.sh` | macOS runner (hdiutil, codesign) |
+| `LensyxeSetup-{amd64,arm64}.exe` | `build/desktop/win/nsis.nsi` | Windows runner (makensis) |
+| `Lensyxe-{darwin-amd64,darwin-arm64}.dmg` | `build/desktop/mac/build.sh` | macOS runner (hdiutil, codesign) |
 
-The Windows installer is built on Windows because `makensis` exists nowhere else,
-and an installer has to be produced on the platform it installs onto.
+Neither installer is a goreleaser target. NSIS exists only on Windows, and
+`hdiutil` and `codesign` only on macOS, so they cannot run on the Linux runner
+that builds everything else. An installer produced on the wrong platform would
+also be the wrong artifact to test on.
+
+Both jobs download the `dist` artifact from the `build` job rather than
+rebuilding. An installer therefore always ships the exact binary that
+`checksums.txt` covers — a rebuilt binary would be a different artifact under the
+same name, which is precisely what makes a checksum useless.
+
+The archives are named with the architecture (`LensyxeSetup-amd64.exe`,
+`Lensyxe-darwin-arm64.dmg`) rather than shipping four files called
+`LensyxeSetup.exe`.
+
+### Neither installer is signed
+
+This is stated plainly because an unsigned artifact that fails is worse than one
+labelled unsigned:
+
+- **Windows.** SmartScreen reports an "unknown publisher" on first run. That is
+  the absence of a code-signing certificate, not a corrupt binary.
+- **macOS.** Gatekeeper blocks the `.dmg` on first open. Right-click → Open works
+  once, or:
+
+  ```bash
+  xattr -dr com.apple.quarantine Lensyxe-darwin-arm64.dmg
+  ```
+
+Both jobs read `MACOS_SIGN_IDENTITY` and `MACOS_NOTARY_PROFILE` secrets if they
+are configured. With an identity present the disk image is signed, the hardened
+runtime is enabled, and it is notarised through `notarytool`. With none
+configured the ad-hoc signature is applied — which macOS still requires on Apple
+Silicon — and the job summary says the image is unsigned.
 
 **There is no goreleaser `dmg` target, on purpose.** goreleaser cannot sign a disk
 image, and an unsigned `.dmg` is blocked by Gatekeeper on current macOS — shipping
-one would produce an artifact that looks *broken* rather than one that looks
-unsigned. `build/desktop/mac/build.sh` assembles and signs it on a macOS runner
-with a Developer ID, notarises it when a `notarytool` keychain profile is
-configured, and otherwise produces a working unsigned image while saying so
-loudly.
+one from goreleaser would produce an artifact that looks *broken* rather than one
+that looks unsigned. `build/desktop/mac/build.sh` assembles and signs it on a
+macOS runner instead.
+
+### A failed installer does not block the release
+
+The six binaries and their checksums are published by the `build` job
+regardless. An `installer-summary` job runs with `if: always()` and reports which
+installer artifacts exist, so a failure is discoverable in the Actions log rather
+than only by noticing something missing on the release page. A missing installer
+degrades to the documented two-step install; it does not block the binaries.
 
 ## Uninstalling
 
@@ -101,7 +138,8 @@ Every route can be undone:
 | Platform | Command |
 | :--- | :--- |
 | Any (shell) | `lensyxe installer --remove --yes` |
-| Windows | `Setup.exe` uninstaller, or the Start Menu entry |
+| Windows | The uninstaller, or the Start Menu entry |
+| macOS | Delete the app from `/Applications` |
 | `.deb` | `apt remove lensyxe` |
 | `.rpm` | `rpm -e lensyxe` |
 
