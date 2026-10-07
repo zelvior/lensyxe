@@ -1,0 +1,28 @@
+package server
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/zelvior/lensyxe/internal/storage"
+	"github.com/zelvior/lensyxe/pkg/models"
+)
+
+func mustBody(t *testing.T, s *Server, path string) string {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+	b, _ := io.ReadAll(rec.Result().Body)
+	return string(b)
+}

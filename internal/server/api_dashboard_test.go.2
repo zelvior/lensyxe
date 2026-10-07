@@ -1,0 +1,59 @@
+package server
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/zelvior/lensyxe/internal/storage"
+	"github.com/zelvior/lensyxe/pkg/models"
+)
+
+// Nested objects the UI reads directly must be present too.
+func TestNestedContract(t *testing.T) {
+	s := newTestServer(t, fixtureSnapshot(), nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, APIPrefix+"/health", nil))
+
+	// A key-by-key presence check: unmarshalling into a struct would accept a
+	// missing key as a zero value, which is exactly the failure mode this
+	// contract test exists to catch.
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	nested := map[string][]string{
+		"health":       {"score", "grade", "summary", "metrics", "components"},
+		"code":         {"files", "code_lines", "source_files", "test_files", "test_file_ratio", "languages"},
+		"git":          {"is_repository", "branch", "window_commits", "authors", "bus_factor"},
+		"dependencies": {"detected", "total", "direct", "locked", "drift"},
+	}
+	for section, fields := range nested {
+		raw, ok := body[section]
+		if !ok {
+			t.Errorf("missing section %q", section)
+			continue
+		}
+		var inner map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &inner); err != nil {
+			t.Errorf("%s: %v", section, err)
+			continue
+		}
+		for _, f := range fields {
+			if _, ok := inner[f]; !ok {
+				t.Errorf("%s: missing field %q", section, f)
+			}
+		}
+	}
+}

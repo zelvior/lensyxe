@@ -1,0 +1,28 @@
+package server
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/zelvior/lensyxe/internal/storage"
+	"github.com/zelvior/lensyxe/pkg/models"
+)
+
+func scores(records []storage.Record) []float64 {
+	out := make([]float64, len(records))
+	for i, r := range records {
+		out[i] = r.Score
+	}
+	return out
+}

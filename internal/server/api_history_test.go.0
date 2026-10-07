@@ -1,0 +1,36 @@
+package server
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/zelvior/lensyxe/internal/storage"
+	"github.com/zelvior/lensyxe/pkg/models"
+)
+
+func TestHistoryWithNoStore(t *testing.T) {
+	s := newTestServer(t, fixtureSnapshot(), nil)
+
+	var got HistoryResponse
+	if code := get(t, s, APIPrefix+"/history", &got); code != http.StatusOK {
+		t.Fatalf("status = %d", code)
+	}
+	if got.Count != 0 {
+		t.Errorf("count = %d, want 0", got.Count)
+	}
+	// A JSON null here would break the chart's iteration.
+	if !strings.Contains(mustBody(t, s, APIPrefix+"/history"), `"records": []`) {
+		t.Error("an empty history must serialize records as []")
+	}
+}

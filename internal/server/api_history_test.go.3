@@ -1,0 +1,58 @@
+package server
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/zelvior/lensyxe/internal/storage"
+	"github.com/zelvior/lensyxe/pkg/models"
+)
+
+func TestHistoryLimit(t *testing.T) {
+	dir := t.TempDir()
+	store, err := storage.Open(filepath.Join(dir, "history.db"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	base := fixtureSnapshot()
+	base.Root = filepath.FromSlash("/repo")
+	for i := 0; i < 5; i++ {
+		if _, err := store.SaveSnapshot(base); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s := newTestServer(t, base, store)
+
+	var got HistoryResponse
+	get(t, s, APIPrefix+"/history?limit=2", &got)
+	if got.Count != 2 {
+		t.Errorf("count = %d, want 2", got.Count)
+	}
+
+	for _, bad := range []string{"limit=-1", "limit=abc"} {
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, APIPrefix+"/history?"+bad, nil))
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: status = %d, want 400", bad, rec.Code)
+		}
+	}
+
+	// An oversized limit is capped rather than rejected, so a client asking
+	// for everything gets as much as the server is willing to send.
+	var capped HistoryResponse
+	get(t, s, APIPrefix+"/history?limit=999999", &capped)
+	if capped.Count != 5 {
+		t.Errorf("capped count = %d, want 5", capped.Count)
+	}
+}

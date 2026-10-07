@@ -1,0 +1,65 @@
+package server
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/zelvior/lensyxe/internal/storage"
+	"github.com/zelvior/lensyxe/pkg/models"
+)
+
+func TestHistoryOrderingIsOldestFirst(t *testing.T) {
+	dir := t.TempDir()
+	store, err := storage.Open(filepath.Join(dir, "history.db"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+
+	root := filepath.FromSlash("/repo")
+	base := fixtureSnapshot()
+	base.Root = root
+
+	// Three runs with rising scores.
+	for i, score := range []float64{70, 80, 90} {
+		snap := *base
+		snap.Health.Score = score
+		snap.Health.Grade = models.Grade(score)
+		snap.Code.AverageLines = float64(i)
+		if _, err := store.SaveSnapshot(&snap); err != nil {
+			t.Fatalf("save %d: %v", i, err)
+		}
+	}
+
+	s := newTestServer(t, base, store)
+	var got HistoryResponse
+	get(t, s, APIPrefix+"/history", &got)
+
+	if got.Count != 3 {
+		t.Fatalf("count = %d, want 3", got.Count)
+	}
+	// A chart plots oldest-first. Getting this backwards would render a
+	// rising trend as a falling one.
+	if got.Records[0].Score >= got.Records[len(got.Records)-1].Score {
+		t.Errorf("records are not oldest-first: %v", scores(got.Records))
+	}
+	if got.Records[0].Score != 70 || got.Records[2].Score != 90 {
+		t.Errorf("unexpected sequence: %v", scores(got.Records))
+	}
+	if got.Delta == nil {
+		t.Fatal("a delta must be reported when there are two or more runs")
+	}
+	if got.Delta.Score != 20 {
+		t.Errorf("delta = %v, want 20", got.Delta.Score)
+	}
+}
