@@ -45,6 +45,12 @@ internal/server/assets/*
 # repository root for the same reason as the binaries below -- an unanchored
 # pattern would match a directory of that name at any depth.
 brag-output/
+# Every later run lands in a timestamped directory (brag-output-YYYY-MM-DD-HHMMSS)
+# so an earlier run is never overwritten. That naming is load-bearing rather than
+# cosmetic: a timestamped name matches this glob and is excluded by the same rule,
+# so without it each extra run appears as untracked noise in `git status` and a
+# multi-megabyte mp4 could be committed by accident.
+brag-output-*/
 
 # Build output.
 #
