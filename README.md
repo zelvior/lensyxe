@@ -25,17 +25,28 @@ a score you cannot trace to a line of code is a colour rather than an action.
 It runs entirely on your machine. There is no telemetry, no account, and no
 upload. The same tree always produces the same score.
 
-<a href="assets/video/lensyxe.mp4" target="_blank" rel="noopener">
+<a href="https://lensyxe-site.vercel.app/video/lensyxe.mp4" target="_blank" rel="noopener">
   <img src="assets/video/lensyxe-poster.jpg" alt="Lensyxe launch video: the tool computes 147 commits/week and refuses to score it, because two days of history is not a cadence." width="640" />
 </a>
 
 <!--
+  Two decisions here, both checked rather than assumed.
+
   A linked poster rather than a <video> element, because GitHub's markdown
   sanitizer strips <video> to an empty paragraph. Verified against GitHub's own
-  rendering API (POST /markdown) rather than assumed: the tag came back as
-  <p dir="auto"></p>, including inside <details>. Clicking the poster opens the
-  file; every thumbnail generator that grabs the poster gets frame 0, which is
-  the same frame by construction.
+  rendering API (POST /markdown, mode=gfm) rather than believed: the tag came
+  back as <p dir="auto"></p>, including inside <details>. GitHub does not play
+  inline video in a README, so no markup achieves it.
+
+  The href points at the hosted copy, not at the file in this repository. I
+  checked the blob page for the committed mp4 and GitHub renders it as a
+  download with a "View raw" button -- no player -- so linking there would have
+  made the poster a dead end. The hosted URL answers 200 as video/mp4 with
+  Accept-Ranges, so a click plays.
+
+  The poster is frame 0 of that file by construction, not by hope: the poster
+  was extracted from the render and then baked over frame 0, so every thumbnail
+  generator that grabs the poster gets the same image a viewer sees first.
 -->
 
 ```
