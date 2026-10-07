@@ -17,6 +17,60 @@ workflow does that, so the claim was removed rather than left standing.
 
 ### Added
 
+- **`lensyxe gap`** — joins what the code looks like to what actually ran, and
+  reports the difference in three sections: critical path hotspots (complicated
+  code that executes), deprioritized debt (complicated code that does not), and
+  phantom code candidates (no runtime evidence at all).
+
+  **Critical Path Risk = Static Complexity × log10(runtime hits + 1).** The
+  logarithm stops one very hot function from swamping the ranking — 10,000× the
+  hits moves the score about 3×. At zero hits the multiplier is `log10(1) = 0`, so
+  never-running code scores zero here by construction, which is why it is reported
+  as its own finding rather than as a low score in this one.
+
+  Static Complexity reuses the analyzer `lensyxe analyze` already uses (45%
+  complexity, 30% size, 25% churn), saturating at the same McCabe limit, so the
+  two commands cannot disagree about what is complex.
+
+### Profile formats, and why there is no new dependency
+
+`gap` reads Go `.pprof` (gzipped protobuf), OpenTelemetry span JSON, and HTTP
+access logs, detecting the format from file content rather than the extension.
+
+pprof is decoded from the `profile.proto` wire format directly rather than by
+adding `github.com/google/pprof` — this project ships six binaries and has kept
+its direct dependency count low. The decoder is about 200 lines because only eight
+top-level fields are needed. The field numbers were **confirmed against a profile
+the Go toolchain produced** rather than taken from documentation, and
+`TestParsePprofAgainstARealProfile` decodes a real generated profile so the
+implementation cannot drift into a plausible-looking but wrong decoder.
+
+### Why the output is qualified where it is
+
+The failure mode of a tool like this is confident nonsense, so the limits are
+stated rather than smoothed over:
+
+- **Unattributable observations are never spread around.** A profile that resolved
+  30% of its observations reports 30%, with the shortfall printed. It is not
+  averaged across the codebase to make coverage look complete.
+- **Phantom code is gated on attribution coverage.** "This never ran" is a claim
+  about absence, and absence is only assertable where the profile could see the
+  code. Below `--min-coverage` (default 0.5) files fall through to debt instead.
+- **A symbol-less profile is reported as such**, rather than producing an empty
+  table that reads like nothing ran.
+- **Ambiguous file names are not joined.** After normalising a profile's build
+  paths to base names, `internal/git/analyzer.go` and `internal/code/analyzer.go`
+  collide. Those joins are refused and counted rather than guessed — on this
+  repository that is 18 shared names.
+- **A version mismatch is surfaced.** If the profile records
+  `service.version=1.4.2` and the tree reports `1.0.0`, the two halves are
+  describing different builds.
+- **Access logs are not joined to code.** A log line records a route, not a
+  handler; its counts are reported against routes with that stated.
+
+A profile samples one window and is not a description of the program. Nothing here
+forecasts demand.
+
 - **`lensyxe topology`** — three independent analyses of repository structure,
   selected with `--bus-factor`, `--temporal`, `--boundaries`, or none for all
   three, and rendered as a table or JSON.

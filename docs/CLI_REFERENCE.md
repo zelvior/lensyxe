@@ -15,6 +15,7 @@ help output is correct and this file is stale.
 - [`lensyxe cognitive`](#lensyxe-cognitive)
 - [`lensyxe decay`](#lensyxe-decay)
 - [`lensyxe topology`](#lensyxe-topology)
+- [`lensyxe gap`](#lensyxe-gap)
 - [`lensyxe compare`](#lensyxe-compare)
 - [`lensyxe history`](#lensyxe-history)
 - [`lensyxe watch`](#lensyxe-watch)
@@ -485,6 +486,100 @@ is visible — a boundary audit that silently ignored a JavaScript tree would re
 a clean bill of health for half the repository.
 
 These are layout rules, not judgements about design.
+
+## `lensyxe gap`
+
+Cross-reference static complexity against real runtime execution.
+
+```
+lensyxe gap [path] [flags]
+```
+
+| Flag | Default | Description |
+| :--- | :--- | :--- |
+| `--profile <path>` | *required* | A pprof, OpenTelemetry span JSON, or HTTP access log. |
+| `--format <fmt>` | `table` | `table` or `json`. |
+| `--min-coverage <f>` | `0.5` | Attribution coverage required before a zero-hit file is called phantom. |
+| `--limit <n>` | `20` | Maximum entries per section. |
+
+`--profile` is **not** optional. Without runtime evidence the command has nothing to
+compare against; for static-only metrics use `lensyxe analyze`.
+
+### Accepted profile formats
+
+Detected from file content, not from the extension, because these formats are
+routinely misnamed.
+
+| Format | How it is recognised | Attribution |
+| :--- | :--- | :--- |
+| Go `.pprof` | gzip magic bytes | Per function, with file |
+| OpenTelemetry JSON | `traceId`/`spanId`/`resourceSpans` markers | Per `code.function.name`, if present |
+| HTTP access log | method-and-path line shape | Per **route**, not per function |
+
+pprof profiles are decoded from the `profile.proto` wire format directly, with no
+new dependency. The field numbers used were confirmed against a profile the Go
+toolchain produced rather than taken from documentation, and the decoder is tested
+against a real generated profile in `TestParsePprofAgainstARealProfile`.
+
+### The score
+
+```
+Critical Path Risk = Static Complexity Score × log10(runtime hits + 1)
+```
+
+**Static Complexity Score** is 0–100, from the same analyzer `analyze` uses:
+45% estimated complexity, 30% code lines, 25% churn. Complexity saturates at the
+existing analyzer's `very_high` McCabe limit, so the two commands cannot disagree
+about what is complex. Weights that do not sum to 1 are rejected, not
+renormalised.
+
+The logarithm is what keeps one very hot function from swamping the ranking:
+10,000× the hits moves the score about 3×.
+
+At **zero hits** the multiplier is `log10(1) = 0`, so never-running code scores
+zero here *by construction*. That is why it is reported as its own finding rather
+than as a low score in this one.
+
+### Three sections, three opposite reactions
+
+| Section | Meaning |
+| :--- | :--- |
+| 🔥 **Critical Path Hotspots** | Complicated code that actually executes. Complexity paid for on every request. |
+| 💤 **Deprioritized Debt** | Complicated code with no runtime evidence. Leaving it alone is defensible; refactoring it is not currently worth the risk. |
+| 👻 **Phantom Code Candidates** | Code with no runtime evidence at all. |
+
+### Why phantom code is gated
+
+"This function never ran" is a claim about **absence**, and absence can only be
+asserted where the profile was able to see the code at all. Below `--min-coverage`
+the section is empty and files fall through to Debt with the shortfall stated,
+because a profile that resolved 20% of its observations may simply have failed to
+record the part of the program a file lives in.
+
+Even at full coverage the claim is weak in a specific way: an untested path, a
+disabled feature flag, and a caller in another process all look identical. The
+output says so.
+
+### Other honesty properties
+
+- **Unattributable observations are never spread around.** A profile that resolved
+  only 30% of its observations reports 30%, and the shortfall is printed with the
+  count. It is not averaged across the codebase to make coverage look complete.
+- **A symbol-less profile is reported, not shown as empty.** A profile with no
+  location or function tables says exactly that, instead of producing a table that
+  reads like nothing ran.
+- **Ambiguous file names are not joined.** A profile records the path the binary
+  was built with; after normalisation to a base name, `internal/git/analyzer.go`
+  and `internal/code/analyzer.go` collide. Those joins are **refused** rather than
+  guessed, and the count is reported.
+- **A version mismatch is surfaced.** If the profile records
+  `service.version=1.4.2` and the tree reports `1.0.0`, the static and runtime
+  halves are describing different builds, and the output says so.
+- **Access logs are not joined to code.** A log line records a route, not a
+  handler. Counts and latency are reported against routes with that stated.
+
+A profile is a sample of **one window**, not a description of the program. Nothing
+here forecasts demand.
 
 ## `lensyxe compare`
 

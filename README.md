@@ -168,6 +168,7 @@ Full arithmetic: **[docs/SCORING_SPEC.md](docs/SCORING_SPEC.md)**.
 | [`lensyxe cognitive`](docs/CLI_REFERENCE.md#lensyxe-cognitive) | A 0-100 friction index from variable lifetime, call density, and scope depth. |
 | [`lensyxe decay`](docs/CLI_REFERENCE.md#lensyxe-decay) | Files that stopped changing, single-author silos, and activity half-life. |
 | [`lensyxe topology`](docs/CLI_REFERENCE.md#lensyxe-topology) | Recency-weighted bus factor, hidden co-change coupling, package boundary violations. |
+| [`lensyxe gap`](docs/CLI_REFERENCE.md#lensyxe-gap) | Static complexity against real runtime execution, from a pprof, OTel export, or access log. |
 | [`lensyxe compare`](docs/CLI_REFERENCE.md#lensyxe-compare) | Compare two revisions via `git archive`, without touching the working tree. |
 | [`lensyxe history`](docs/CLI_REFERENCE.md#lensyxe-history) | Plot the recorded health timeline. Also spelled `log`. |
 | [`lensyxe watch`](docs/CLI_REFERENCE.md#lensyxe-watch) | Re-analyze on every change and stream the movement. |
