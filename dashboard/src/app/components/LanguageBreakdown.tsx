@@ -72,13 +72,12 @@ export function LanguageBreakdown({ languages }: { languages: LanguageStat[] }) 
         </table>
       </div>
       <p className="mt-3 text-xs text-slate-400">
-        {totalFiles.toLocaleString('en-US')} file{totalFiles === 1 ? '' : 's'} across{' '}
-        {languages.length} language{languages.length === 1 ? '' : 's'},{' '}
-        {totalLines.toLocaleString('en-US')} code lines. Blank lines and comments are
-        excluded from the line counts, the same way the CLI counts them.{' '}
+        {totalFiles.toLocaleString('en-US')} files,{' '}
+        {totalLines.toLocaleString('en-US')} code lines, comments and blanks
+        excluded.{' '}
         {totalTestFiles === 0
-          ? 'No test files were attributed to any language, so this says nothing about how the repository is tested.'
-          : `${totalTestFiles} of those files are test files.`}
+          ? 'No test files attributed.'
+          : `${totalTestFiles} test files.`}
       </p>
     </div>
   );

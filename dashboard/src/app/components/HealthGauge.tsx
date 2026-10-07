@@ -74,13 +74,23 @@ export function HealthGauge({
           same box without the digits shifting as the value changes. */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span
-          className={`tabular font-semibold leading-none text-slate-50 ${
+          className={`tabular font-semibold leading-none tracking-tight text-slate-50 ${
             size === 'sm' ? 'text-2xl' : 'text-4xl'
           }`}
         >
           {formatScore(clamped)}
         </span>
-        <span className="mt-1 text-xs uppercase tracking-widest text-slate-400">
+        {/*
+          The grade is set as a large letter rather than a small caption. It was
+          "grade B" at 12px under a 36px number, which made the most scannable
+          piece of information on the page the hardest to read.
+        */}
+        <span
+          className={`mt-0.5 font-semibold uppercase leading-none tracking-[0.2em] ${
+            size === 'sm' ? 'text-sm' : 'text-xl'
+          }`}
+          style={{ color: scoreColor(clamped) }}
+        >
           {grade || '—'}
         </span>
       </div>

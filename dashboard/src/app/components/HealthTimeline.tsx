@@ -15,10 +15,19 @@ export function HealthTimeline({ records }: { records: HistoryRecord[] }) {
 
   if (points.length === 0) {
     return (
-      <p className="text-sm text-slate-300">
-        No snapshots recorded yet. Run <code className="text-slate-400">lensyxe analyze</code>{' '}
-        to record one.
-      </p>
+      <div className="text-[0.8125rem] leading-relaxed text-slate-400">
+        <p className="text-slate-300">No trend yet.</p>
+        <p className="mt-1.5">
+          Health over time is read from a SQLite database beside the repository,
+          not from the analysis itself, so it accumulates one point per run.{' '}
+          <code className="font-mono text-slate-300">lensyxe analyze</code>{' '}
+          records one.
+        </p>
+        <p className="mt-1.5">
+          A snapshot file carries no history, so this panel stays empty on a
+          hosted page however many times you load one.
+        </p>
+      </div>
     );
   }
 

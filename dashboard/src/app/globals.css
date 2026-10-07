@@ -15,19 +15,44 @@
       'Segoe UI',
       Roboto,
       sans-serif;
+    /* A hair lighter than pure #e2e8f0. Full white on a near-black ground is
+       the harshest pairing there is and it flattens every weight difference,
+       which is most of what type hierarchy is made of. */
+    -webkit-font-smoothing: antialiased;
   }
 
-  /* Tabular figures keep score columns from shifting as values change. */
+  /* Tabular figures keep score columns from shifting as values change. Applied
+     to every number in a table and to any element that shows a changing figure. */
   table,
   .tabular {
     font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * Four sizes, used deliberately.
+   *
+   * The previous stylesheet reached for text-xs and text-[0.65rem] almost
+   * everywhere, which put most of the page at 10-12px in three closely related
+   * greys. Nothing stood out, so nothing could be read first. These steps are
+   * spaced far enough apart to survive at a glance.
+   */
+  --t-micro: 0.6875rem; /* 11px: table headers, chips, the quietest labels */
+  --t-small: 0.8125rem; /* 13px: captions, notes, secondary figures */
+  --t-body: 0.9375rem; /* 15px: prose, table cells, anything being read */
+  --t-lead: 1.0625rem; /* 17px: the score band and section leads */
+
+  /*
+   * Measure. A line of text longer than about 75 characters is measurably
+   * harder to track back to the next line; the captions are capped so they do
+   * not become a grey ribbon across a wide screen.
+   */
+  .measure {
+    max-width: 68ch;
   }
 }
 
 @layer components {
   .card {
-    /* Padding steps with the viewport: a fixed 20px gutter inside an already
-       narrow phone gutter leaves very little room for a score and its label. */
     @apply rounded-lg border border-slate-800 bg-slate-900/40 p-4 sm:p-5;
   }
 
@@ -37,13 +62,54 @@
 
   /*
    * A scroll container for wide tables.
-
+   *
    * overflow-x-auto alone is not enough: it also needs min-w-0 so the grid or
    * flex parent is allowed to shrink below the table's intrinsic width. Without
    * it a wide table forces the whole page to scroll horizontally, which drags
-   * the header and every other card along with it.
+   * the header and every other section along with it.
    */
   .scroll-x {
     @apply -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0;
+  }
+
+  /*
+   * Section heading. A rule rather than a filled box: the sections on this page
+   * are bands in one continuous document, and boxing each one made them read as
+   * a grid of identical units instead of a page.
+   */
+  .section-head {
+    @apply mb-3 flex items-baseline gap-3 border-b border-slate-800/70 pb-2;
+  }
+
+  .section-title {
+    @apply text-sm font-semibold tracking-tight text-slate-100;
+  }
+
+  /* The quietest text on the page. Still 13px and still legible. */
+  .caption {
+    @apply mt-2 text-[0.8125rem] leading-relaxed text-slate-400;
+  }
+
+  /* A column header: uppercase, wide-tracked, and small enough to stay quiet. */
+  .th {
+    @apply py-2 pr-4 text-left text-[0.6875rem] font-medium uppercase tracking-wider text-slate-400;
+  }
+
+  .th-num {
+    @apply py-2 pr-4 text-right text-[0.6875rem] font-medium uppercase tracking-wider text-slate-400;
+  }
+
+  /* A table cell at reading size rather than caption size. */
+  .td {
+    @apply py-2.5 pr-4 text-[0.9375rem] text-slate-300;
+  }
+
+  .td-num {
+    @apply tabular py-2.5 pr-4 text-right text-[0.9375rem] text-slate-400;
+  }
+
+  /* Machine identifiers: paths, hashes, versions. One place, so it stays a signal. */
+  .ident {
+    @apply font-mono text-xs text-slate-200;
   }
 }

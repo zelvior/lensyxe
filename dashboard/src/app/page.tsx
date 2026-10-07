@@ -219,9 +219,9 @@ export default function OverviewPage() {
           <h2 className="mb-3 text-sm font-semibold text-slate-100">Hotspots</h2>
           <HotspotTable hotspots={hotspots.hotspots} />
           {hotspots.total > 0 && (
-            <p className="mt-2 text-xs leading-relaxed text-slate-400">
-              Confirmation needs size, churn, and complexity to cross their
-              thresholds together. Size alone is weak evidence.
+            <p className="caption measure">
+              A file is confirmed only when size, churn and complexity cross
+              their thresholds together.
             </p>
           )}
         </div>

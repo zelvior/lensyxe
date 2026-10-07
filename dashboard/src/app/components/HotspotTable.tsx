@@ -13,16 +13,19 @@ import { formatScore } from 'lib/format';
  * little, and the badge is where that nuance would get lost.
  */
 function Tag({ confirmed }: { confirmed: boolean }) {
-  if (confirmed) {
-    return (
-      <span className="rounded bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-300">
-        Confirmed
-      </span>
-    );
-  }
+  /*
+   * Only a confirmed hotspot is badged.
+   *
+   * This used to render a grey "Candidate" pill on every unconfirmed row, which
+   * on a typical repository is ten identical pills down a column saying the same
+   * thing ten times. The absence of a badge is now the signal that a file is not
+   * confirmed, and the one row that is confirmed is the one that draws the eye --
+   * which is the entire point of the distinction.
+   */
+  if (!confirmed) return null;
   return (
-    <span className="rounded bg-slate-700/40 px-2 py-0.5 text-xs font-medium text-slate-400">
-      Candidate
+    <span className="rounded-sm bg-red-500/15 px-1.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-wide text-red-300">
+      confirmed
     </span>
   );
 }
@@ -168,17 +171,22 @@ export function HotspotTable({ hotspots }: { hotspots: Hotspot[] }) {
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full w-full text-left">
             <thead>
-              <tr className="border-b border-slate-800 text-[0.65rem] uppercase tracking-wider text-slate-400">
-                <th scope="col" className="w-6 py-2 pr-2 font-medium">
+              <tr className="border-b border-slate-800">
+                <th scope="col" className="w-6 py-2 pr-2">
                   <span className="sr-only">Expand</span>
                 </th>
-                <th scope="col" className="py-2 pr-4 font-medium">File</th>
-                <th scope="col" className="py-2 pr-4 text-right font-medium">Lines</th>
-                <th scope="col" className="hidden py-2 pr-4 text-right font-medium sm:table-cell">Churn</th>
-                <th scope="col" className="hidden py-2 pr-4 text-right font-medium md:table-cell">Cx</th>
-                <th scope="col" className="py-2 font-medium">Severity</th>
+                <th scope="col" className="th">File</th>
+                <th scope="col" className="th-num">Lines</th>
+                <th scope="col" className="th-num hidden sm:table-cell">Churn</th>
+                <th scope="col" className="th-num hidden md:table-cell">Cx</th>
+                <th
+                  scope="col"
+                  className={confirmedCount > 0 ? 'th' : 'th hidden'}
+                >
+                  Severity
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -210,28 +218,30 @@ export function HotspotTable({ hotspots }: { hotspots: Hotspot[] }) {
                     scope="row"
                     className="max-w-[9rem] py-2.5 pr-4 text-left font-normal sm:max-w-xs lg:max-w-none"
                   >
-                    <span className="block truncate font-mono text-xs text-slate-200">
+                    <span className="ident block truncate">
                       {h.path}
                     </span>
-                    <span className="mt-0.5 block text-xs text-slate-400">{h.rationale}</span>
                   </th>
-                  <td className="tabular py-2.5 pr-4 text-right text-slate-400">
+                  <td className="td-num">
                     {h.lines}
                   </td>
-                  <td className="tabular py-2.5 pr-4 text-right text-slate-400">
+                  <td className="td-num">
                     {h.churn}
                   </td>
-                  <td className="tabular py-2.5 pr-4 text-right text-slate-400">
+                  <td className="td-num">
                     {formatScore(h.complexity)}
                   </td>
-                  <td className="py-2.5">
+                  {/* Hides with its header. An empty SEVERITY column is dead width, and the
+                      colSpan on the detail row below follows it so the layout
+                      stays consistent either way. */}
+                  <td className={confirmedCount > 0 ? 'py-2.5 text-[0.8125rem]' : 'hidden'}>
                     <Tag confirmed={h.confirmed} />
                   </td>
                 </tr>
                 {expanded && (
                   <tr className="border-b border-slate-800/50 bg-slate-900/40">
                     <td />
-                    <td colSpan={5} className="py-4 pr-4">
+                    <td colSpan={confirmedCount > 0 ? 5 : 4} className="py-4 pr-4">
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div>
                           <p className="mb-2 text-xs uppercase tracking-wider text-slate-300">
@@ -241,6 +251,11 @@ export function HotspotTable({ hotspots }: { hotspots: Hotspot[] }) {
                             classification={h.classification}
                             confirmed={h.confirmed}
                           />
+                          {h.rationale && (
+                            <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                              {h.rationale}
+                            </p>
+                          )}
                         </div>
                         <div>
                           <p className="mb-2 text-xs uppercase tracking-wider text-slate-300">

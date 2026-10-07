@@ -64,15 +64,15 @@ export function ChurnTable({
   return (
     <div>
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table className="w-full w-full text-left">
           <thead>
-            <tr className="border-b border-slate-800 text-[0.65rem] uppercase tracking-wider text-slate-400">
-              <th scope="col" className="py-2 pr-4 font-medium">File</th>
-              <th scope="col" className="hidden py-2 pr-4 text-right font-medium sm:table-cell">Commits</th>
-              <th scope="col" className="py-2 pr-4 text-right font-medium">Added</th>
-              <th scope="col" className="hidden py-2 pr-4 text-right font-medium md:table-cell">Deleted</th>
-              <th scope="col" className="py-2 pr-4 text-right font-medium">Share</th>
-              <th scope="col" className="hidden py-2 pr-4 font-medium lg:table-cell">Relative</th>
+            <tr className="border-b border-slate-800">
+              <th scope="col" className="th">File</th>
+              <th scope="col" className="th-num hidden sm:table-cell">Commits</th>
+              <th scope="col" className="th-num">Added</th>
+              <th scope="col" className="th-num hidden md:table-cell">Deleted</th>
+              <th scope="col" className="th-num">Share</th>
+              <th scope="col" className="th hidden lg:table-cell">Relative</th>
               <th scope="col" className="py-2 font-medium">
                 {overlapCount > 0 ? 'Hotspot' : <span className="sr-only">Hotspot</span>}
               </th>
@@ -91,20 +91,20 @@ export function ChurnTable({
                     scope="row"
                     className="max-w-[8rem] py-2.5 pr-4 text-left font-normal sm:max-w-xs lg:max-w-none"
                   >
-                    <span className="block truncate font-mono text-xs text-slate-200">
+                    <span className="ident block truncate">
                       {c.path}
                     </span>
                   </th>
-                  <td className="tabular py-2.5 pr-4 text-right text-slate-400">
+                  <td className="td-num">
                     {c.commits}
                   </td>
-                  <td className="tabular py-2.5 pr-4 text-right text-slate-300">
+                  <td className="td-num text-slate-300">
                     {c.added.toLocaleString('en-US')}
                   </td>
-                  <td className="tabular py-2.5 pr-4 text-right text-slate-400">
+                  <td className="td-num">
                     {c.deleted.toLocaleString('en-US')}
                   </td>
-                  <td className="tabular py-2.5 pr-4 text-right text-slate-300">
+                  <td className="td-num text-slate-300">
                     {share >= 0.05 ? `${share.toFixed(1)}%` : '<0.1%'}
                   </td>
                   <td className="hidden w-24 py-2.5 pr-4 lg:table-cell lg:w-28">
@@ -119,19 +119,19 @@ export function ChurnTable({
                       />
                     </span>
                   </td>
-                  <td className="py-2.5">
-                    {overlapCount === 0 ? null : hotspot ? (
-                      <span
-                        className={
-                          hotspot.confirmed
-                            ? 'rounded bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-300'
-                            : 'rounded bg-slate-700/40 px-2 py-0.5 text-xs font-medium text-slate-400'
-                        }
-                      >
-                        {hotspot.confirmed ? 'Confirmed' : 'Candidate'}
+                  <td className="py-2.5 text-[0.8125rem]">
+                    {/*
+                     * Same rule as the hotspot table: only a confirmed hotspot
+                     * gets a badge. An unconfirmed overlap is a dash, not a
+                     * pill, so the confirmed row is the only thing in this
+                     * column that carries weight.
+                     */}
+                    {overlapCount === 0 ? null : hotspot?.confirmed ? (
+                      <span className="rounded-sm bg-red-500/15 px-1.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-wide text-red-300">
+                        confirmed
                       </span>
                     ) : (
-                      <span className="text-xs text-slate-400">—</span>
+                      <span className="text-slate-600">—</span>
                     )}
                   </td>
                 </tr>
@@ -140,24 +140,19 @@ export function ChurnTable({
           </tbody>
         </table>
       </div>
-      <p className="mt-3 text-xs leading-relaxed text-slate-400">
-        Movement inside the analysis window.{' '}
-        <span className="text-slate-300">Share</span> is this file&rsquo;s portion
-        of all churn in the table.{' '}
+      <p className="caption measure">
+        <span className="text-slate-300">Share</span> is each file&rsquo;s
+        portion of the churn shown.{' '}
         <span className="text-slate-300">Relative</span> scales the bars to the
-        busiest file so the distribution is readable. A file can be large without
-        ever appearing here, and can churn heavily without being large; a hotspot
-        needs both.
+        busiest file.
+        {overlapCount === 0 && (
+          <>
+            {' '}
+            Neither table is filtered, and both are capped at ten rows, so a
+            file missing here is not thereby a clean file.
+          </>
+        )}
       </p>
-      {overlapCount === 0 && (
-        <p className="mt-2 text-xs leading-relaxed text-slate-400">
-          <span className="text-slate-300">None of these files is in the hotspot
-          list</span> beside it. Both tables show the top ten rows and are capped
-          independently, so this is a fact about the truncation rather than about
-          the files: it does not mean none of them is a hotspot, only that none
-          reached the top ten on both rankings at once.
-        </p>
-      )}
     </div>
   );
 }
