@@ -57,6 +57,14 @@ func main() {
 		problems = append(problems, fmt.Sprintf(format, args...))
 	}
 
+	// Whether the extension has been compiled in this working tree. It has not
+	// been on a fresh clone, and the checks below that depend on generated output
+	// are skipped until it has. See the main-entrypoint check for why.
+	builtDirExists := false
+	if entries, err := os.ReadDir(filepath.Join("ide", "vscode", "out")); err == nil {
+		builtDirExists = len(entries) > 0
+	}
+
 	raw, err := os.ReadFile(manifestPath)
 	if err != nil {
 		fail(err)
@@ -147,8 +155,22 @@ func main() {
 	if m.Main == "" {
 		note("manifest declares no main entrypoint")
 	} else if _, err := os.Stat(filepath.Join("ide", "vscode", filepath.FromSlash(m.Main))); err != nil {
-		// Expected before the first compile. Not a problem worth reporting.
-		note("manifest main %s is not built yet (run npm run compile)", m.Main)
+		// Report a missing entrypoint only once the extension has been built.
+		//
+		// out/ is generated and gitignored, so the entrypoint is absent from a
+		// fresh clone. Reporting that unconditionally made this validator fail
+		// on a clean tree -- exactly the state it exists to pass -- because CI's
+		// matrix jobs run `go test ./...` before the dedicated extension job that
+		// does `npm ci && npm run compile`.
+		//
+		// Gating on the existence of out/ keeps the check meaningful instead of
+		// dropping it: the dedicated job builds the extension and then re-runs
+		// this validator, at which point out/ exists and a genuinely missing or
+		// misnamed entrypoint is still reported. Before that point the file
+		// cannot be built yet, so its absence says nothing about the manifest.
+		if builtDirExists {
+			note("manifest main %s is not built yet (run npm run compile)", m.Main)
+		}
 	}
 
 	for _, license := range []string{"LICENSE"} {
